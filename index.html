@@ -3,99 +3,183 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bronze Age: Empires of the Ancient World</title>
+  <title>Wilusa: Twilight of the Bronze Age</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ===== START SCREEN ===== -->
-<div id="start-screen">
-  <div class="start-content">
-    <div class="title-area">
-      <h1>⚔ BRONZE AGE ⚔</h1>
-      <p class="subtitle">Empires of the Ancient World · 1700–1100 BCE</p>
+<!-- ===== INTRO SCREEN ===== -->
+<div id="intro-screen">
+  <div class="intro-content">
+    <p class="intro-era">1250 BCE · THE LATE BRONZE AGE</p>
+    <h1>WILUSA</h1>
+    <p class="intro-sub">Twilight of the Bronze Age</p>
+    <div class="intro-divider"></div>
+    <p class="intro-text">
+      You are the ruler of <strong>Wilusa</strong> — what history will call Troy.<br>
+      Your city guards the Hellespont, the narrow strait between seas,<br>
+      collecting tolls and growing rich on trade.<br><br>
+      You are a vassal of the mighty <strong>Hittite Empire</strong>. You owe them tribute in bronze.<br>
+      The world seems stable. But across the sea, something stirs.<br><br>
+      <em>Survive 100 years. Do not let Troy fall.</em>
+    </p>
+    <div class="intro-stats">
+      <div class="stat-item"><span class="stat-icon">🌾</span><span>Grain</span><span class="stat-desc">Feed your people</span></div>
+      <div class="stat-item"><span class="stat-icon">⚒</span><span>Copper</span><span class="stat-desc">From Cyprus</span></div>
+      <div class="stat-item"><span class="stat-icon">🔩</span><span>Tin</span><span class="stat-desc">From Afghanistan via Assyria</span></div>
+      <div class="stat-item"><span class="stat-icon">⚙</span><span>Bronze</span><span class="stat-desc">Craft from Copper + Tin</span></div>
     </div>
-    <p class="intro">Command a great civilization at the height of the Bronze Age. Expand your territory, forge alliances, wage war, and build an empire that will outlast the ages.</p>
-    <h2 class="choose-label">Choose Your Civilization</h2>
-    <div class="civ-grid" id="civ-grid">
-      <!-- filled by JS -->
-    </div>
-    <button id="start-btn" disabled>Begin Campaign</button>
+    <button id="begin-btn">Begin Your Reign</button>
   </div>
 </div>
 
 <!-- ===== GAME SCREEN ===== -->
-<div id="game-container">
+<div id="game-screen">
 
   <!-- Top bar -->
   <div id="top-bar">
-    <div id="civ-name-display"></div>
-    <div class="resource-bar">
-      <span class="res" id="res-food">🌾 <span id="food-val">0</span><span class="rate" id="food-rate"></span></span>
-      <span class="res" id="res-bronze">⚙ <span id="bronze-val">0</span><span class="rate" id="bronze-rate"></span></span>
-      <span class="res" id="res-gold">◎ <span id="gold-val">0</span><span class="rate" id="gold-rate"></span></span>
+    <div id="title-block">
+      <span class="city-name">⚔ WILUSA</span>
+      <span class="vassal-status" id="vassal-status">Vassal of Hatti</span>
     </div>
-    <div id="turn-display">
-      <span id="year-display">1700 BCE</span>
-      <span id="turn-count">Turn 1 / 24</span>
+    <div id="resources-bar">
+      <div class="res-item" title="Grain stored — feeds population and army">
+        <span class="res-icon">🌾</span>
+        <span id="r-grain">20</span>
+        <span class="res-rate" id="rr-grain">+4</span>
+      </div>
+      <div class="res-item" title="Copper — primary bronze component, from Cyprus">
+        <span class="res-icon">⚒</span>
+        <span id="r-copper">8</span>
+        <span class="res-rate" id="rr-copper">+0</span>
+      </div>
+      <div class="res-item" title="Tin — scarce alloy, from Afghan routes via Assyria">
+        <span class="res-icon">🔩</span>
+        <span id="r-tin">4</span>
+        <span class="res-rate" id="rr-tin">+0</span>
+      </div>
+      <div class="res-item" title="Bronze — crafted (2 Copper + 1 Tin), used for tribute and weapons">
+        <span class="res-icon">⚙</span>
+        <span id="r-bronze">6</span>
+        <span class="res-rate" id="rr-bronze">+0</span>
+      </div>
+      <div class="res-item" title="Gold — trade currency from Hellespont tolls">
+        <span class="res-icon">◎</span>
+        <span id="r-gold">20</span>
+        <span class="res-rate" id="rr-gold">+5</span>
+      </div>
     </div>
-    <button id="end-turn-btn">End Turn ▶</button>
+    <div id="time-block">
+      <div id="year-label">1250 BCE</div>
+      <div id="turn-label">Year 1 of 15</div>
+    </div>
+    <button id="next-turn-btn">End Year ▶</button>
   </div>
 
-  <!-- Main area -->
-  <div id="main-area">
+  <!-- Main layout -->
+  <div id="main-layout">
 
-    <!-- Map canvas -->
-    <div id="map-container">
+    <!-- Map area -->
+    <div id="map-area">
       <canvas id="map-canvas"></canvas>
-      <div id="hex-tooltip"></div>
+      <div id="map-tooltip"></div>
+      <div id="phase-banner"></div>
     </div>
 
-    <!-- Sidebar -->
-    <div id="sidebar">
-      <div id="tile-info">
-        <div class="panel-title">📍 Territory</div>
-        <div id="tile-details">
-          <p class="hint-text">Click a hex to inspect it.</p>
+    <!-- Right panel -->
+    <div id="right-panel">
+
+      <!-- City status -->
+      <div id="city-panel">
+        <div class="panel-header">🏛 TROY — CITY STATUS</div>
+        <div id="city-stats">
+          <div class="city-stat">
+            <span class="cstat-label">👥 Population</span>
+            <div class="cstat-bar-wrap"><div class="cstat-bar" id="bar-pop"></div></div>
+            <span class="cstat-val" id="val-pop">100</span>
+          </div>
+          <div class="city-stat">
+            <span class="cstat-label">🏰 Walls</span>
+            <div class="wall-pips" id="wall-pips"></div>
+            <span class="cstat-val" id="val-walls">3/5</span>
+          </div>
+          <div class="city-stat">
+            <span class="cstat-label">⚔ Garrison</span>
+            <div class="cstat-bar-wrap"><div class="cstat-bar bar-army" id="bar-army"></div></div>
+            <span class="cstat-val" id="val-army">15</span>
+          </div>
+        </div>
+        <div class="panel-header" style="margin-top:8px">⚡ ACTIONS</div>
+        <div id="action-list">
+          <!-- filled by JS -->
         </div>
       </div>
 
-      <div id="actions-panel">
-        <div class="panel-title">⚡ Actions</div>
-        <div id="action-buttons">
-          <p class="hint-text">Select one of your territories.</p>
+      <!-- Trade / region info -->
+      <div id="trade-panel">
+        <div class="panel-header">🗺 REGION INFO</div>
+        <div id="trade-content">
+          <p class="hint">Click a region on the map to trade or gather information.</p>
         </div>
       </div>
 
-      <div id="civs-panel">
-        <div class="panel-title">🏛 Civilizations</div>
-        <div id="civs-list"></div>
-      </div>
     </div>
   </div>
 
-  <!-- Event log -->
-  <div id="event-log">
-    <div class="log-title">Chronicles</div>
-    <div id="log-entries"></div>
+  <!-- Bottom: market + log -->
+  <div id="bottom-bar">
+    <div id="market-panel">
+      <div class="panel-header">⚖ MARKET PRICES</div>
+      <div id="market-prices">
+        <!-- filled by JS -->
+      </div>
+    </div>
+    <div id="log-panel">
+      <div class="panel-header">📜 CHRONICLES</div>
+      <div id="log-entries"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== TRADE MODAL ===== -->
+<div id="trade-modal">
+  <div id="trade-modal-inner">
+    <div id="tmod-header">
+      <span id="tmod-region-icon"></span>
+      <div>
+        <div id="tmod-region-name"></div>
+        <div id="tmod-region-status"></div>
+      </div>
+      <button class="close-btn" id="tmod-close">✕</button>
+    </div>
+    <div id="tmod-desc"></div>
+    <div id="tmod-goods"></div>
+    <div id="tmod-cart">
+      <div id="tmod-cart-summary"></div>
+      <button id="tmod-confirm">Confirm Trade</button>
+    </div>
   </div>
 </div>
 
 <!-- ===== EVENT MODAL ===== -->
 <div id="event-modal">
   <div id="event-modal-inner">
-    <div id="event-modal-icon"></div>
-    <h2 id="event-modal-title"></h2>
-    <p id="event-modal-text"></p>
-    <button id="event-modal-btn">Continue</button>
+    <div id="emod-icon"></div>
+    <h2 id="emod-title"></h2>
+    <p id="emod-text"></p>
+    <div id="emod-effects"></div>
+    <button id="emod-continue">Continue</button>
   </div>
 </div>
 
 <!-- ===== GAME OVER ===== -->
-<div id="game-over-screen">
-  <div id="game-over-inner">
-    <h1 id="game-over-title"></h1>
-    <p id="game-over-text"></p>
+<div id="gameover-screen">
+  <div id="gameover-inner">
+    <div id="gameover-icon"></div>
+    <h1 id="gameover-title"></h1>
+    <p id="gameover-text"></p>
+    <div id="gameover-score"></div>
     <button onclick="location.reload()">Play Again</button>
   </div>
 </div>
