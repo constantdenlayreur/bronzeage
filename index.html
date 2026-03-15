@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bronze Age: Empires of the Ancient World</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===== START SCREEN ===== -->
+<div id="start-screen">
+  <div class="start-content">
+    <div class="title-area">
+      <h1>⚔ BRONZE AGE ⚔</h1>
+      <p class="subtitle">Empires of the Ancient World · 1700–1100 BCE</p>
+    </div>
+    <p class="intro">Command a great civilization at the height of the Bronze Age. Expand your territory, forge alliances, wage war, and build an empire that will outlast the ages.</p>
+    <h2 class="choose-label">Choose Your Civilization</h2>
+    <div class="civ-grid" id="civ-grid">
+      <!-- filled by JS -->
+    </div>
+    <button id="start-btn" disabled>Begin Campaign</button>
+  </div>
+</div>
+
+<!-- ===== GAME SCREEN ===== -->
+<div id="game-container">
+
+  <!-- Top bar -->
+  <div id="top-bar">
+    <div id="civ-name-display"></div>
+    <div class="resource-bar">
+      <span class="res" id="res-food">🌾 <span id="food-val">0</span><span class="rate" id="food-rate"></span></span>
+      <span class="res" id="res-bronze">⚙ <span id="bronze-val">0</span><span class="rate" id="bronze-rate"></span></span>
+      <span class="res" id="res-gold">◎ <span id="gold-val">0</span><span class="rate" id="gold-rate"></span></span>
+    </div>
+    <div id="turn-display">
+      <span id="year-display">1700 BCE</span>
+      <span id="turn-count">Turn 1 / 24</span>
+    </div>
+    <button id="end-turn-btn">End Turn ▶</button>
+  </div>
+
+  <!-- Main area -->
+  <div id="main-area">
+
+    <!-- Map canvas -->
+    <div id="map-container">
+      <canvas id="map-canvas"></canvas>
+      <div id="hex-tooltip"></div>
+    </div>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div id="tile-info">
+        <div class="panel-title">📍 Territory</div>
+        <div id="tile-details">
+          <p class="hint-text">Click a hex to inspect it.</p>
+        </div>
+      </div>
+
+      <div id="actions-panel">
+        <div class="panel-title">⚡ Actions</div>
+        <div id="action-buttons">
+          <p class="hint-text">Select one of your territories.</p>
+        </div>
+      </div>
+
+      <div id="civs-panel">
+        <div class="panel-title">🏛 Civilizations</div>
+        <div id="civs-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event log -->
+  <div id="event-log">
+    <div class="log-title">Chronicles</div>
+    <div id="log-entries"></div>
+  </div>
+</div>
+
+<!-- ===== EVENT MODAL ===== -->
+<div id="event-modal">
+  <div id="event-modal-inner">
+    <div id="event-modal-icon"></div>
+    <h2 id="event-modal-title"></h2>
+    <p id="event-modal-text"></p>
+    <button id="event-modal-btn">Continue</button>
+  </div>
+</div>
+
+<!-- ===== GAME OVER ===== -->
+<div id="game-over-screen">
+  <div id="game-over-inner">
+    <h1 id="game-over-title"></h1>
+    <p id="game-over-text"></p>
+    <button onclick="location.reload()">Play Again</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>

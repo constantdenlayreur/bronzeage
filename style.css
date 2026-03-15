@@ -1,0 +1,536 @@
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d0600;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  color: #e8d5b0;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== START SCREEN ===== */
+#start-screen {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(212,160,23,0.08) 0%, transparent 60%),
+    linear-gradient(160deg, #110800 0%, #200e00 50%, #0a0500 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.start-content {
+  max-width: 900px;
+  width: 95%;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.title-area h1 {
+  font-size: clamp(2em, 5vw, 3.5em);
+  color: #d4a017;
+  text-shadow: 0 0 40px rgba(212,160,23,0.5), 0 0 80px rgba(212,160,23,0.2);
+  letter-spacing: 6px;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  font-size: 0.95em;
+  color: #7a5a30;
+  letter-spacing: 3px;
+  margin-bottom: 25px;
+  text-transform: uppercase;
+}
+
+.intro {
+  max-width: 600px;
+  margin: 0 auto 30px;
+  color: #9a7a50;
+  font-size: 0.9em;
+  line-height: 1.7;
+}
+
+.choose-label {
+  font-size: 1em;
+  color: #7a5a30;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+  font-weight: normal;
+}
+
+.civ-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 30px;
+}
+
+.civ-card {
+  background: rgba(255,255,255,0.03);
+  border: 2px solid #3a2010;
+  border-radius: 8px;
+  padding: 16px 12px;
+  cursor: pointer;
+  transition: all 0.25s;
+  text-align: center;
+  position: relative;
+}
+
+.civ-card:hover {
+  border-color: rgba(212,160,23,0.6);
+  background: rgba(212,160,23,0.07);
+  transform: translateY(-2px);
+}
+
+.civ-card.selected {
+  border-color: #d4a017;
+  background: rgba(212,160,23,0.15);
+  box-shadow: 0 0 20px rgba(212,160,23,0.2);
+}
+
+.civ-card .civ-icon { font-size: 2em; margin-bottom: 6px; }
+.civ-card .civ-name { font-size: 1em; font-weight: bold; color: #e8d5b0; margin-bottom: 4px; }
+.civ-card .civ-era  { font-size: 0.7em; color: #6a4a20; letter-spacing: 1px; margin-bottom: 6px; }
+.civ-card .civ-desc { font-size: 0.72em; color: #7a5a30; line-height: 1.4; margin-bottom: 6px; }
+.civ-card .civ-bonus{ font-size: 0.72em; color: #c8a040; }
+
+#start-btn {
+  background: linear-gradient(135deg, #7a5010, #c8900a, #e0a820);
+  color: #0a0500;
+  border: none;
+  padding: 14px 50px;
+  font-size: 1.1em;
+  font-family: 'Georgia', serif;
+  font-weight: bold;
+  letter-spacing: 3px;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: all 0.3s;
+  text-transform: uppercase;
+}
+
+#start-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+#start-btn:not(:disabled):hover {
+  background: linear-gradient(135deg, #c8900a, #e0a820, #f0c040);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(212,160,23,0.4);
+}
+
+/* ===== GAME CONTAINER ===== */
+#game-container {
+  display: none;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ===== TOP BAR ===== */
+#top-bar {
+  background: linear-gradient(180deg, #100600, #1a0a02);
+  border-bottom: 1px solid #3a2010;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  min-height: 46px;
+}
+
+#civ-name-display {
+  font-size: 0.9em;
+  font-weight: bold;
+  letter-spacing: 2px;
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+.resource-bar {
+  display: flex;
+  gap: 18px;
+  flex: 1;
+}
+
+.res {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.88em;
+  white-space: nowrap;
+}
+
+.res span { font-weight: bold; }
+.rate { font-size: 0.8em; color: #60a050; margin-left: 2px; font-weight: normal; }
+.rate.neg { color: #c04040; }
+
+#turn-display {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.78em;
+  line-height: 1.3;
+}
+
+#year-display { color: #d4a017; font-size: 1.05em; font-weight: bold; }
+#turn-count { color: #6a4a20; }
+
+#end-turn-btn {
+  background: linear-gradient(135deg, #3a2010, #5a3018);
+  color: #d4a017;
+  border: 1px solid #5a3018;
+  padding: 7px 14px;
+  font-size: 0.82em;
+  font-family: 'Georgia', serif;
+  cursor: pointer;
+  border-radius: 4px;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+#end-turn-btn:hover { background: linear-gradient(135deg, #5a3018, #8a5028); border-color: #d4a017; }
+#end-turn-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ===== MAIN AREA ===== */
+#main-area {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ===== MAP ===== */
+#map-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 40% 40%, #0a2040 0%, #020810 100%);
+}
+
+#map-canvas { cursor: pointer; display: block; }
+
+#hex-tooltip {
+  position: fixed;
+  background: rgba(5, 2, 0, 0.95);
+  border: 1px solid #5a3a1a;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 0.76em;
+  pointer-events: none;
+  z-index: 50;
+  display: none;
+  line-height: 1.5;
+}
+
+/* ===== SIDEBAR ===== */
+#sidebar {
+  width: 240px;
+  min-width: 240px;
+  background: linear-gradient(180deg, #0e0600, #160900);
+  border-left: 1px solid #3a2010;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.panel-title {
+  background: rgba(212,160,23,0.08);
+  border-bottom: 1px solid #3a2010;
+  padding: 7px 12px;
+  font-size: 0.72em;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #8a6030;
+}
+
+#tile-info, #actions-panel, #civs-panel {
+  border-bottom: 1px solid #1a0a00;
+}
+
+#tile-details, #action-buttons, #civs-list {
+  padding: 10px 12px;
+}
+
+.hint-text {
+  font-size: 0.75em;
+  color: #4a3010;
+  font-style: italic;
+}
+
+/* Tile info */
+.tile-name {
+  font-size: 0.95em;
+  font-weight: bold;
+  color: #d4a017;
+  margin-bottom: 4px;
+}
+
+.terrain-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 3px;
+  font-size: 0.68em;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.terrain-fertile   { background: #1a3a10; color: #70c050; }
+.terrain-desert    { background: #3a2a00; color: #c09030; }
+.terrain-hills     { background: #2a1a00; color: #a07040; }
+.terrain-mountains { background: #1a1a1a; color: #909090; }
+.terrain-forest    { background: #0a2010; color: #50a050; }
+.terrain-steppe    { background: #1a2010; color: #80a040; }
+.terrain-sea       { background: #001838; color: #4080c0; }
+
+.tile-owner {
+  font-size: 0.78em;
+  color: #7a5a30;
+  margin-bottom: 6px;
+}
+
+.tile-owner-name { font-weight: bold; }
+
+.tile-res-row {
+  display: flex;
+  gap: 10px;
+  font-size: 0.75em;
+  color: #8a6a40;
+  margin-bottom: 4px;
+}
+
+.tile-building {
+  font-size: 0.75em;
+  color: #8a6a40;
+  margin-bottom: 4px;
+}
+
+.tile-units {
+  font-size: 0.75em;
+  color: #9a7a50;
+}
+
+/* Action buttons */
+.action-btn {
+  display: block;
+  width: 100%;
+  background: rgba(212,160,23,0.06);
+  border: 1px solid #2a1800;
+  color: #c0a070;
+  padding: 7px 10px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  font-family: 'Georgia', serif;
+  font-size: 0.76em;
+  text-align: left;
+  border-radius: 3px;
+  transition: all 0.2s;
+  line-height: 1.3;
+}
+
+.action-btn:hover:not(:disabled) {
+  background: rgba(212,160,23,0.18);
+  border-color: #8a6020;
+  color: #e8d5b0;
+}
+
+.action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.action-btn.active-move {
+  background: rgba(80,200,80,0.15);
+  border-color: #50a050;
+  color: #70d070;
+}
+
+.cost-tag {
+  float: right;
+  color: #c8a040;
+  font-size: 0.9em;
+}
+
+/* Civ list */
+.civ-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+  font-size: 0.78em;
+}
+
+.civ-color-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.civ-entry-name { flex: 1; color: #c0a070; }
+.civ-entry-tiles { color: #6a4a20; font-size: 0.85em; }
+.civ-entry.eliminated .civ-entry-name { color: #3a2010; text-decoration: line-through; }
+
+/* ===== EVENT LOG ===== */
+#event-log {
+  background: #080400;
+  border-top: 1px solid #2a1400;
+  padding: 5px 14px;
+  height: 85px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.log-title {
+  font-size: 0.65em;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #3a2010;
+  margin-bottom: 3px;
+}
+
+.log-entry {
+  font-size: 0.72em;
+  color: #6a4a25;
+  padding: 1px 0;
+  line-height: 1.4;
+}
+
+.log-entry.log-event    { color: #b08030; }
+.log-entry.log-battle   { color: #a03030; }
+.log-entry.log-capture  { color: #c05030; }
+.log-entry.log-build    { color: #508050; }
+.log-entry.log-victory  { color: #d4a017; font-weight: bold; }
+.log-entry.log-ai       { color: #5a5a8a; }
+
+/* ===== EVENT MODAL ===== */
+#event-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+#event-modal-inner {
+  background: linear-gradient(160deg, #120800, #1e0e00);
+  border: 2px solid #8a6020;
+  border-radius: 10px;
+  padding: 30px 35px;
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(212,160,23,0.2);
+}
+
+#event-modal-icon { font-size: 2.5em; margin-bottom: 10px; }
+#event-modal-title { font-size: 1.3em; color: #d4a017; margin-bottom: 12px; }
+#event-modal-text  { font-size: 0.85em; color: #9a7a50; line-height: 1.6; margin-bottom: 20px; }
+
+#event-modal-btn {
+  background: linear-gradient(135deg, #8a6020, #d4a017);
+  color: #0a0500;
+  border: none;
+  padding: 10px 30px;
+  font-size: 0.9em;
+  font-family: 'Georgia', serif;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 4px;
+  letter-spacing: 1px;
+}
+
+#event-modal-btn:hover {
+  background: linear-gradient(135deg, #d4a017, #f0c040);
+}
+
+/* ===== GAME OVER ===== */
+#game-over-screen {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.88);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+}
+
+#game-over-inner {
+  background: linear-gradient(160deg, #120800, #1e0e00);
+  border: 3px solid #8a6020;
+  border-radius: 12px;
+  padding: 40px 50px;
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 0 80px rgba(0,0,0,0.8);
+}
+
+#game-over-title {
+  font-size: 2.2em;
+  margin-bottom: 12px;
+  letter-spacing: 3px;
+}
+
+.victory-title { color: #d4a017; text-shadow: 0 0 30px rgba(212,160,23,0.5); }
+.defeat-title  { color: #c04030; }
+.survive-title { color: #70c070; }
+
+#game-over-text {
+  font-size: 0.88em;
+  color: #9a7a50;
+  line-height: 1.7;
+  margin-bottom: 25px;
+}
+
+#game-over-inner button {
+  background: linear-gradient(135deg, #8a6020, #d4a017);
+  color: #0a0500;
+  border: none;
+  padding: 12px 40px;
+  font-size: 1em;
+  font-family: 'Georgia', serif;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 5px;
+  letter-spacing: 2px;
+}
+
+#game-over-inner button:hover {
+  background: linear-gradient(135deg, #d4a017, #f0c040);
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #0a0400; }
+::-webkit-scrollbar-thumb { background: #3a2010; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #5a3018; }
+
+/* ===== MOVE MODE INDICATOR ===== */
+#move-mode-banner {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(80,200,80,0.2);
+  border: 1px solid #50a050;
+  color: #80e080;
+  padding: 5px 16px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  letter-spacing: 1px;
+  pointer-events: none;
+  display: none;
+  z-index: 10;
+}
