@@ -1146,20 +1146,40 @@ function renderLog() {
 }
 
 // ─── TRADE MODAL ─────────────────────────────────────────────
-// Cart: { [resourceId]: { qty, type:'buy'|'sell' } }
-let tradeCart = {};
+const RES_META = {
+  grain:      { name:'Grain',      icon:'🌾' },
+  copper:     { name:'Copper',     icon:'⚒'  },
+  tin:        { name:'Tin',        icon:'🔩' },
+  bronze:     { name:'Bronze',     icon:'⚙'  },
+  silver:     { name:'Silver',     icon:'🥈' },
+  olive_oil:  { name:'Olive Oil',  icon:'🫒' },
+  pottery:    { name:'Pottery',    icon:'🏺' },
+  timber:     { name:'Timber',     icon:'🪵' },
+  horses:     { name:'Horses',     icon:'🐎' },
+  purple_dye: { name:'Purple Dye', icon:'🟣' },
+};
+
+let buyCart  = {};   // resId → qty player wants to buy
+let sellCart = {};   // resId → qty player wants to sell
 let currentTradeRegionId = null;
+
+function getSellPrice(resId, regionId) {
+  const region = REGIONS[regionId];
+  const mult = (region.imports || []).includes(resId) ? 0.72 : 0.38;
+  return Math.max(0.5, Math.round(getPrice(resId, regionId) * mult * 10) / 10);
+}
 
 function openTradeModal(regionId) {
   const region = REGIONS[regionId];
   const rs     = G.regionState[regionId];
-  tradeCart = {};
+  buyCart  = {};
+  sellCart = {};
   currentTradeRegionId = regionId;
 
-  document.getElementById('tmod-region-icon').textContent = region.icon;
-  document.getElementById('tmod-region-name').textContent = region.name;
+  document.getElementById('tmod-region-icon').textContent   = region.icon;
+  document.getElementById('tmod-region-name').textContent   = region.name;
   document.getElementById('tmod-region-status').textContent = getRelationLabel(rs.relation);
-  document.getElementById('tmod-desc').textContent = region.desc;
+  document.getElementById('tmod-desc').textContent          = region.desc;
 
   renderTradeGoods(regionId);
   document.getElementById('trade-modal').style.display = 'flex';
@@ -1171,80 +1191,147 @@ function renderTradeGoods(regionId) {
   const exports = Object.entries(region.exports || {});
   const container = document.getElementById('tmod-goods');
 
+  // ── BUY section ──────────────────────────────────────────
+  let buyHtml = `<div class="tmod-section-header">📦 BUY from ${region.name.split(' ')[0]}</div>`;
   if (exports.length === 0) {
-    container.innerHTML = '<p style="color:#4a3010;font-size:0.8em;padding:10px">Nothing available to trade.</p>';
-    return;
+    buyHtml += '<p style="color:#4a3010;font-size:0.8em;padding:4px 0">Nothing available to buy.</p>';
+  } else {
+    buyHtml += exports.map(([resId, info]) => {
+      const availQty = Math.max(0, info.qty + (rs.exportMods[resId] || 0));
+      const price    = getPrice(resId, regionId);
+      const cartQty  = buyCart[resId] || 0;
+      const priceClass = price > BASE_PRICES[resId] * 1.4 ? 'expensive' : price < BASE_PRICES[resId] * 0.8 ? 'cheap' : '';
+      const canAffordMore = G.res.gold + sellCartRevenue(regionId) - buyCartCost(regionId) >= price;
+
+      return `<div class="trade-good-row">
+        <div class="tg-icon">${info.icon}</div>
+        <div class="tg-name">${info.name}<br><span style="font-size:0.78em;color:#5a4020">Avail: ${availQty}</span></div>
+        <div class="tg-price ${priceClass}">◎${price.toFixed(1)}<br><span class="tg-label">BUY</span></div>
+        <div class="tg-controls">
+          <button class="buy-btn" data-res="${resId}" data-dir="-1">−</button>
+          <span id="bqty-${resId}">${cartQty}</span>
+          <button class="buy-btn" data-res="${resId}" data-dir="1" ${!canAffordMore || cartQty >= availQty ? 'disabled' : ''}>+</button>
+        </div>
+        <div class="tg-subtotal" id="bsub-${resId}">◎${(price * cartQty).toFixed(0)}</div>
+      </div>`;
+    }).join('');
   }
 
-  container.innerHTML = exports.map(([resId, info]) => {
-    const availQty = Math.max(0, info.qty + (rs.exportMods[resId] || 0));
-    const price    = getPrice(resId, regionId);
-    const cart     = tradeCart[resId] || { qty: 0 };
-    const priceClass = price > BASE_PRICES[resId] * 1.4 ? 'expensive' : price < BASE_PRICES[resId] * 0.8 ? 'cheap' : '';
-    const canAffordMore = G.res.gold >= price * (cart.qty + 1);
+  // ── SELL section ─────────────────────────────────────────
+  const sellable = Object.entries(RES_META).filter(([resId]) =>
+    resId !== 'gold' && (G.res[resId] || 0) > 0
+  );
 
-    return `<div class="trade-good-row" data-res="${resId}">
-      <div class="tg-icon">${info.icon}</div>
-      <div class="tg-name">${info.name}<br><span style="font-size:0.8em;color:#5a4020">Available: ${availQty} units</span></div>
-      <div class="tg-price ${priceClass}">◎<span>${price.toFixed(1)}</span>/unit</div>
-      <div class="tg-controls">
-        <button class="qty-btn" data-res="${resId}" data-dir="-1">−</button>
-        <span class="qty-val" id="qty-${resId}">${cart.qty}</span>
-        <button class="qty-btn" data-res="${resId}" data-dir="1" ${!canAffordMore || cart.qty >= availQty ? 'disabled' : ''}>+</button>
-      </div>
-      <div class="tg-subtotal" id="sub-${resId}">◎${(price * cart.qty).toFixed(0)}</div>
-      <span class="tg-label">BUY</span>
-    </div>`;
-  }).join('');
+  let sellHtml = `<div class="tmod-section-header" style="margin-top:12px">💰 SELL to ${region.name.split(' ')[0]}</div>`;
+  if (sellable.length === 0) {
+    sellHtml += '<p style="color:#4a3010;font-size:0.8em;padding:4px 0">You have nothing to sell.</p>';
+  } else {
+    sellHtml += sellable.map(([resId, meta]) => {
+      const playerQty = G.res[resId] || 0;
+      const cartQty   = sellCart[resId] || 0;
+      const sellPrice = getSellPrice(resId, regionId);
+      const isWanted  = (region.imports || []).includes(resId);
+      const wantedBadge = isWanted ? `<span class="wanted-badge">WANTED</span>` : '';
 
-  // Wire quantity buttons
-  container.querySelectorAll('.qty-btn').forEach(btn => {
+      return `<div class="trade-good-row">
+        <div class="tg-icon">${meta.icon}</div>
+        <div class="tg-name">${meta.name} ${wantedBadge}<br><span style="font-size:0.78em;color:#5a4020">You have: ${playerQty}</span></div>
+        <div class="tg-price cheap">◎${sellPrice.toFixed(1)}<br><span class="tg-label tg-sell-label">SELL</span></div>
+        <div class="tg-controls">
+          <button class="sell-btn" data-res="${resId}" data-dir="-1">−</button>
+          <span id="sqty-${resId}">${cartQty}</span>
+          <button class="sell-btn" data-res="${resId}" data-dir="1" ${cartQty >= playerQty ? 'disabled' : ''}>+</button>
+        </div>
+        <div class="tg-subtotal" id="ssub-${resId}" style="color:#80c060">+◎${(sellPrice * cartQty).toFixed(0)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  container.innerHTML = buyHtml + sellHtml;
+
+  // Wire BUY buttons
+  container.querySelectorAll('.buy-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const res  = btn.dataset.res;
-      const dir  = parseInt(btn.dataset.dir);
-      const info = region.exports[res];
-      const availQty = Math.max(0, info.qty + (rs.exportMods[res] || 0));
-      const price    = getPrice(res, regionId);
-      const current  = tradeCart[res]?.qty || 0;
+      const resId  = btn.dataset.res;
+      const dir    = parseInt(btn.dataset.dir);
+      const info   = region.exports[resId];
+      const avail  = Math.max(0, info.qty + (rs.exportMods[resId] || 0));
+      const price  = getPrice(resId, regionId);
+      const cur    = buyCart[resId] || 0;
+      const newQty = Math.max(0, Math.min(avail, cur + dir));
 
-      let newQty = Math.max(0, Math.min(availQty, current + dir));
-      // Check gold
-      if (dir > 0 && G.res.gold < price * (current + 1)) return;
+      if (dir > 0) {
+        const netGold = G.res.gold + sellCartRevenue(regionId) - buyCartCost(regionId);
+        if (netGold < price) return;
+      }
 
-      tradeCart[res] = { qty: newQty };
-      document.getElementById(`qty-${res}`).textContent = newQty;
-      document.getElementById(`sub-${res}`).textContent = `◎${(price * newQty).toFixed(0)}`;
-
+      buyCart[resId] = newQty;
+      document.getElementById(`bqty-${resId}`).textContent = newQty;
+      document.getElementById(`bsub-${resId}`).textContent = `◎${(price * newQty).toFixed(0)}`;
       updateCartSummary(regionId);
-      renderTradeGoods(regionId); // re-render to update disabled states
+      renderTradeGoods(regionId);
+    });
+  });
+
+  // Wire SELL buttons
+  container.querySelectorAll('.sell-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const resId     = btn.dataset.res;
+      const dir       = parseInt(btn.dataset.dir);
+      const playerQty = G.res[resId] || 0;
+      const sellPrice = getSellPrice(resId, regionId);
+      const cur       = sellCart[resId] || 0;
+      const newQty    = Math.max(0, Math.min(playerQty, cur + dir));
+
+      sellCart[resId] = newQty;
+      document.getElementById(`sqty-${resId}`).textContent = newQty;
+      document.getElementById(`ssub-${resId}`).textContent = `+◎${(sellPrice * newQty).toFixed(0)}`;
+      updateCartSummary(regionId);
+      renderTradeGoods(regionId);
     });
   });
 
   updateCartSummary(regionId);
 }
 
-function updateCartSummary(regionId) {
-  let totalCost = 0;
-  let items = [];
+function buyCartCost(regionId) {
+  return Object.entries(buyCart).reduce((sum, [resId, qty]) => {
+    return sum + (qty > 0 ? getPrice(resId, regionId) * qty : 0);
+  }, 0);
+}
 
-  Object.entries(tradeCart).forEach(([resId, entry]) => {
-    if (entry.qty <= 0) return;
-    const price = getPrice(resId, regionId);
-    const cost  = price * entry.qty;
-    totalCost  += cost;
-    items.push(`${entry.qty}× ${resId}`);
-  });
+function sellCartRevenue(regionId) {
+  return Object.entries(sellCart).reduce((sum, [resId, qty]) => {
+    return sum + (qty > 0 ? getSellPrice(resId, regionId) * qty : 0);
+  }, 0);
+}
+
+function updateCartSummary(regionId) {
+  const buyCost  = buyCartCost(regionId);
+  const sellRev  = sellCartRevenue(regionId);
+  const netCost  = buyCost - sellRev;
+
+  const buyItems  = Object.entries(buyCart).filter(([,q]) => q > 0).map(([r,q]) => `${q}× ${RES_META[r]?.icon || r}`);
+  const sellItems = Object.entries(sellCart).filter(([,q]) => q > 0).map(([r,q]) => `${q}× ${RES_META[r]?.icon || r}`);
 
   const summary = document.getElementById('tmod-cart-summary');
   const confirm = document.getElementById('tmod-confirm');
 
-  if (items.length === 0) {
-    summary.textContent = 'No items selected.';
-    confirm.disabled    = true;
-  } else {
-    summary.innerHTML = `${items.join(', ')}<br>Total: <b style="color:#d4a017">◎${totalCost.toFixed(1)}</b>`;
-    confirm.disabled  = totalCost > G.res.gold;
+  if (!buyItems.length && !sellItems.length) {
+    summary.textContent  = 'No items selected.';
+    confirm.disabled     = true;
+    return;
   }
+
+  let html = '';
+  if (buyItems.length)  html += `Buy: ${buyItems.join(' ')} <span style="color:#d4a017">−◎${buyCost.toFixed(1)}</span><br>`;
+  if (sellItems.length) html += `Sell: ${sellItems.join(' ')} <span style="color:#80c060">+◎${sellRev.toFixed(1)}</span><br>`;
+  const netColor = netCost <= 0 ? '#80c060' : '#d4a017';
+  html += `Net: <b style="color:${netColor}">${netCost <= 0 ? '+' : '−'}◎${Math.abs(netCost).toFixed(1)}</b>`;
+  if (netCost > 0 && G.res.gold < netCost) html += ` <span style="color:#c03030">(need ◎${(netCost - G.res.gold).toFixed(1)} more)</span>`;
+
+  summary.innerHTML = html;
+  confirm.disabled  = netCost > 0 && G.res.gold < netCost;
 }
 
 document.getElementById('tmod-close').addEventListener('click', () => {
@@ -1254,26 +1341,36 @@ document.getElementById('tmod-close').addEventListener('click', () => {
 document.getElementById('tmod-confirm').addEventListener('click', () => {
   if (!currentTradeRegionId) return;
 
-  let totalCost = 0;
-  const bought  = [];
+  const regionId   = currentTradeRegionId;
+  const regionName = REGIONS[regionId].name;
+  const buyCost    = buyCartCost(regionId);
+  const sellRev    = sellCartRevenue(regionId);
+  const netCost    = buyCost - sellRev;
 
-  Object.entries(tradeCart).forEach(([resId, entry]) => {
-    if (entry.qty <= 0) return;
-    const price = getPrice(resId, currentTradeRegionId);
-    const cost  = price * entry.qty;
-    totalCost  += cost;
-    G.res[resId] = (G.res[resId] || 0) + entry.qty;
-    bought.push(`${entry.qty}× ${resId}`);
+  const bought = [], sold = [];
+
+  Object.entries(buyCart).forEach(([resId, qty]) => {
+    if (qty <= 0) return;
+    G.res[resId] = (G.res[resId] || 0) + qty;
+    bought.push(`${qty}× ${RES_META[resId]?.icon || resId}`);
   });
 
-  G.res.gold -= totalCost;
+  Object.entries(sellCart).forEach(([resId, qty]) => {
+    if (qty <= 0) return;
+    G.res[resId] = Math.max(0, (G.res[resId] || 0) - qty);
+    sold.push(`${qty}× ${RES_META[resId]?.icon || resId}`);
+  });
 
-  const regionName = REGIONS[currentTradeRegionId].name;
-  G.addLog(`Traded with ${regionName}: bought ${bought.join(', ')} for ◎${totalCost.toFixed(0)}.`, 'log-trade');
+  G.res.gold = Math.max(0, G.res.gold - netCost);
+
+  const parts = [];
+  if (bought.length) parts.push(`bought ${bought.join(' ')}`);
+  if (sold.length)   parts.push(`sold ${sold.join(' ')}`);
+  G.addLog(`Trade with ${regionName}: ${parts.join(', ')}. Net ◎${Math.abs(netCost).toFixed(0)} ${netCost <= 0 ? 'gained' : 'spent'}.`, 'log-trade');
 
   document.getElementById('trade-modal').style.display = 'none';
   G.tradeDoneThisTurn = true;
-  tradeCart = {};
+  buyCart = {}; sellCart = {};
   renderAll();
 });
 
