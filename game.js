@@ -444,6 +444,13 @@ const G = {
   tributeDoubleThisTurn: false,
   cavalryBonus: 0,  // elite bonus from trained cavalry (max 3)
 
+  // Local production upgrades (permanent investments)
+  production: {
+    farmland: 0,   // 0-3 levels: each +2 grain/turn   (cost ◎8 each)
+    tollgate: 0,   // 0-2 levels: each +3 gold/turn    (cost ◎12 each)
+    smithy:   0,   // 0-2 levels: each +1 bronze/turn  (cost ◎8 + ⚒3 each)
+  },
+
   // Market price multipliers (affected by events)
   priceMult: {
     grain: 1, copper: 1, tin: 1, bronze: 1,
@@ -490,12 +497,13 @@ Object.keys(REGIONS).forEach(id => {
 
 // ─── RESOURCE PRODUCTION (per turn) ─────────────────────────
 function getTroyProduction() {
+  const p = G.production;
   return {
-    grain:  4,   // Troad farmland
-    gold:   5,   // Hellespont tolls
+    grain:  4 + p.farmland * 2,   // Troad farmland + expansions
+    gold:   5 + p.tollgate * 3,   // Hellespont tolls + fortified gates
     copper: 0,
     tin:    0,
-    bronze: 0,
+    bronze: p.smithy,             // Bronze Smithy auto-production
   };
 }
 
@@ -504,8 +512,28 @@ function popGrainConsumption() {
   return Math.max(1, Math.ceil((G.population / 100) * 3));
 }
 
+// Gold upkeep: 1 gold per 5 soldiers (equipment, pay)
 function garrisonGoldCost() {
   return Math.floor(G.garrison / 5);
+}
+
+// Grain upkeep: 1 grain per 8 soldiers (rations)
+function garrisonGrainCost() {
+  return Math.floor(G.garrison / 8);
+}
+
+function feedGarrison() {
+  const need = garrisonGrainCost();
+  if (need === 0) return;
+  if (G.res.grain >= need) {
+    G.res.grain -= need;
+  } else {
+    const deficit  = need - G.res.grain;
+    G.res.grain    = 0;
+    const deserted = Math.min(G.garrison, deficit * 5);
+    G.garrison     = Math.max(0, G.garrison - deserted);
+    G.addLog(`⚠ Garrison underfed — ${deserted} warriors desert.`, 'log-crisis');
+  }
 }
 
 // ─── CRAFTING (Bronze from Copper + Tin) ────────────────────
@@ -1587,11 +1615,11 @@ function renderTopBar() {
 
   const prod = getTroyProduction();
   const needGrain = popGrainConsumption();
-  const grainNet  = prod.grain - needGrain;
+  const grainNet  = prod.grain - needGrain - garrisonGrainCost();
   setRate('rr-grain',  grainNet);
   setRate('rr-copper', prod.copper);
   setRate('rr-tin',    prod.tin);
-  setRate('rr-bronze', 0);
+  setRate('rr-bronze', prod.bronze);
   setRate('rr-gold',   prod.gold - garrisonGoldCost());
 
   const year = 1250 - (G.turn - 1) * 7;
@@ -1629,13 +1657,71 @@ function renderCityStats() {
   const armyPct = Math.min(100, (G.garrison / 50) * 100);
   document.getElementById('bar-army').style.width  = armyPct + '%';
   document.getElementById('val-army').textContent  = G.garrison;
+
+  // Upkeep breakdown
+  const goldUp  = garrisonGoldCost();
+  const grainUp = garrisonGrainCost();
+  const upkeepEl = document.getElementById('garrison-upkeep');
+  if (upkeepEl) {
+    upkeepEl.textContent = `Upkeep: ◎${goldUp}/yr  🌾${grainUp}/yr`;
+    upkeepEl.style.color = grainUp > getTroyProduction().grain - popGrainConsumption() ? '#c05030' : '#6a5020';
+  }
+
+  // Production bonuses summary
+  const prodEl = document.getElementById('production-summary');
+  if (prodEl) {
+    const p = G.production;
+    const parts = [];
+    if (p.farmland) parts.push(`🌾+${p.farmland*2}/yr`);
+    if (p.tollgate) parts.push(`◎+${p.tollgate*3}/yr`);
+    if (p.smithy)   parts.push(`⚙+${p.smithy}/yr`);
+    prodEl.textContent = parts.length ? `City: ${parts.join('  ')}` : 'City: no upgrades';
+  }
 }
 
 function renderActions() {
   const container = document.getElementById('action-list');
   const r = G.res;
+  const p = G.production;
 
   const actions = [
+    // ── Production Upgrades ──────────────────────────────────
+    { type: 'header', label: '🏗 Production Upgrades' },
+    {
+      id: 'farm-up',
+      label: `🌾 Expand Farmland  (Lv ${p.farmland}/3)`,
+      cost:  `◎8 → +2🌾/yr`,
+      enabled: p.farmland < 3 && r.gold >= 8,
+      fn: () => {
+        r.gold -= 8; p.farmland++;
+        G.addLog(`Farmland expanded. Grain production +2/yr (now ${4 + p.farmland * 2}/yr).`, 'log-good');
+        renderAll();
+      }
+    },
+    {
+      id: 'toll-up',
+      label: `🚢 Fortify Toll Gate  (Lv ${p.tollgate}/2)`,
+      cost:  `◎12 → +3◎/yr`,
+      enabled: p.tollgate < 2 && r.gold >= 12,
+      fn: () => {
+        r.gold -= 12; p.tollgate++;
+        G.addLog(`Toll gate fortified. Gold income +3/yr (now ${5 + p.tollgate * 3}/yr).`, 'log-good');
+        renderAll();
+      }
+    },
+    {
+      id: 'smithy-up',
+      label: `⚒ Build Bronze Smithy  (Lv ${p.smithy}/2)`,
+      cost:  `◎8 ⚒3 → +1⚙/yr`,
+      enabled: p.smithy < 2 && r.gold >= 8 && r.copper >= 3,
+      fn: () => {
+        r.gold -= 8; r.copper -= 3; p.smithy++;
+        G.addLog(`Bronze smithy upgraded. Auto-produces ${p.smithy} bronze/yr.`, 'log-good');
+        renderAll();
+      }
+    },
+    // ── Crafting ─────────────────────────────────────────────
+    { type: 'header', label: '⚙ Crafting' },
     {
       id: 'craft2',
       label: `⚙ Forge Bronze ×2`,
@@ -1657,6 +1743,8 @@ function renderActions() {
       enabled: canCraft(3),
       fn: () => { craftBronze(3); renderAll(); }
     },
+    // ── Garrison ─────────────────────────────────────────────
+    { type: 'header', label: `⚔ Garrison  (upkeep: ◎${garrisonGoldCost()}/yr  🌾${garrisonGrainCost()}/yr)` },
     {
       id: 'recruit5',
       label: `⚔ Recruit Warriors +5`,
@@ -1681,6 +1769,30 @@ function renderActions() {
         renderAll();
       }
     },
+    {
+      id: 'disband5',
+      label: `🏚 Disband Warriors −5`,
+      cost: `saves ◎1 🌾1/yr`,
+      enabled: G.garrison >= 5,
+      fn: () => {
+        G.garrison -= 5;
+        G.addLog('Disbanded 5 warriors. Garrison reduced — upkeep falls.', 'log-event');
+        renderAll();
+      }
+    },
+    {
+      id: 'disband10',
+      label: `🏚 Disband Warriors −10`,
+      cost: `saves ◎2 🌾1/yr`,
+      enabled: G.garrison >= 10,
+      fn: () => {
+        G.garrison -= 10;
+        G.addLog('Disbanded 10 warriors. Garrison reduced — upkeep falls.', 'log-event');
+        renderAll();
+      }
+    },
+    // ── Defence & Trade ───────────────────────────────────────
+    { type: 'header', label: '🏰 Defence & Trade' },
     {
       id: 'walls',
       label: `🏰 Reinforce Walls +1`,
@@ -1788,13 +1900,15 @@ function renderActions() {
     },
   ];
 
-  container.innerHTML = actions.map(a =>
-    `<button class="action-item" data-id="${a.id}" ${!a.enabled ? 'disabled' : ''}>
+  container.innerHTML = actions.map(a => {
+    if (a.type === 'header')
+      return `<div class="action-section-label">${a.label}</div>`;
+    return `<button class="action-item" data-id="${a.id}" ${!a.enabled ? 'disabled' : ''}>
       ${a.label} <span class="action-cost">${a.cost}</span>
-    </button>`
-  ).join('');
+    </button>`;
+  }).join('');
 
-  actions.forEach(a => {
+  actions.filter(a => !a.type).forEach(a => {
     const btn = container.querySelector(`[data-id="${a.id}"]`);
     if (btn && a.enabled) btn.addEventListener('click', a.fn);
   });
@@ -2163,12 +2277,19 @@ function advanceTurn() {
   const prod = getTroyProduction();
   G.res.grain  += prod.grain;
   G.res.gold   += prod.gold - garrisonGoldCost();
+  if (prod.bronze > 0) {
+    G.res.bronze += prod.bronze;
+    G.addLog(`Bronze Smithy produced ${prod.bronze} bronze.`, 'log-good');
+  }
 
   // 2. Pay tribute
   if (G.vassalOfHatti) payTribute();
 
   // 3. Feed population
   feedPopulation();
+
+  // 3b. Feed garrison (rations for soldiers)
+  feedGarrison();
 
   // 4. Check starvation
   if (G.population <= 0) {
