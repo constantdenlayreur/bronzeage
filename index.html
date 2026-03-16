@@ -173,6 +173,60 @@
   </div>
 </div>
 
+<!-- ===== BATTLE MODAL ===== -->
+<div id="battle-modal">
+  <div id="battle-inner">
+    <div id="bmod-header">
+      <div id="bmod-year"></div>
+      <h2 id="bmod-title"></h2>
+      <div id="bmod-subtitle"></div>
+    </div>
+
+    <div id="bmod-armies">
+      <div class="army-card" id="bmod-atk">
+        <div class="army-card-icon" id="bmod-atk-icon"></div>
+        <div class="army-card-name" id="bmod-atk-name"></div>
+        <div class="army-card-size" id="bmod-atk-size"></div>
+        <div class="army-card-power" id="bmod-atk-power"></div>
+      </div>
+      <div id="bmod-vs-col">
+        <div id="bmod-vs">⚔</div>
+        <div id="bmod-power-bars">
+          <div class="pbar-wrap">
+            <div class="pbar-label">ATK</div>
+            <div class="pbar-track"><div class="pbar-fill pbar-atk" id="bmod-bar-atk"></div></div>
+          </div>
+          <div class="pbar-wrap">
+            <div class="pbar-label">DEF</div>
+            <div class="pbar-track"><div class="pbar-fill pbar-def" id="bmod-bar-def"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="army-card" id="bmod-def">
+        <div class="army-card-icon">⚔</div>
+        <div class="army-card-name">Troy (Wilusa)</div>
+        <div class="army-card-size" id="bmod-def-size"></div>
+        <div class="army-card-power" id="bmod-def-power"></div>
+        <div class="army-card-walls" id="bmod-def-walls"></div>
+      </div>
+    </div>
+
+    <div id="bmod-phases-header">📜 Battle Phases</div>
+    <div id="bmod-phases"></div>
+
+    <div id="bmod-result-wrap">
+      <div id="bmod-result-icon"></div>
+      <div id="bmod-result-title"></div>
+      <div id="bmod-casualties">
+        <div id="bmod-atk-cas"></div>
+        <div id="bmod-def-cas"></div>
+      </div>
+    </div>
+
+    <button id="bmod-continue">Continue ▶</button>
+  </div>
+</div>
+
 <!-- ===== GAME OVER ===== -->
 <div id="gameover-screen">
   <div id="gameover-inner">

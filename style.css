@@ -739,3 +739,289 @@ html, body {
 #gameover-inner button:hover {
   background: linear-gradient(135deg, #d4a017, #f0c040);
 }
+
+/* ===== BATTLE MODAL ===== */
+#battle-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.88);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+}
+
+#battle-inner {
+  background: linear-gradient(160deg, #120000, #1e0800);
+  border: 2px solid #8a2020;
+  border-radius: 10px;
+  width: 560px;
+  max-width: 96vw;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 0 80px rgba(180,40,20,0.25), 0 0 20px rgba(0,0,0,0.9);
+}
+
+#bmod-header {
+  text-align: center;
+  padding: 16px 20px 10px;
+  border-bottom: 1px solid #2a0a00;
+  background: rgba(180,40,20,0.07);
+}
+
+#bmod-year {
+  font-size: 0.72em;
+  letter-spacing: 3px;
+  color: #6a3020;
+  text-transform: uppercase;
+}
+
+#bmod-title {
+  font-size: 1.25em;
+  color: #e05030;
+  letter-spacing: 2px;
+  margin: 4px 0;
+  text-shadow: 0 0 20px rgba(220,60,30,0.4);
+}
+
+#bmod-subtitle {
+  font-size: 0.75em;
+  color: #6a4030;
+  font-style: italic;
+}
+
+#bmod-armies {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid #1a0800;
+}
+
+.army-card {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 6px;
+}
+
+#bmod-atk { border: 1px solid #2a1010; text-align: left; }
+#bmod-def { border: 1px solid #102010; text-align: right; }
+#bmod-def .army-card-name, #bmod-def .army-card-size,
+#bmod-def .army-card-power, #bmod-def .army-card-walls { text-align: right; }
+
+.army-card-icon  { font-size: 1.5em; }
+.army-card-name  { font-size: 0.85em; font-weight: bold; color: #d4a017; }
+.army-card-size  { font-size: 0.75em; color: #8a6a40; }
+.army-card-power { font-size: 0.72em; color: #c07030; }
+.army-card-walls { font-size: 0.7em; color: #6090a0; }
+
+#bmod-vs-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  gap: 8px;
+}
+
+#bmod-vs {
+  font-size: 1.6em;
+  color: #8a2020;
+  text-shadow: 0 0 12px rgba(200,40,20,0.5);
+}
+
+#bmod-power-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 80px;
+}
+
+.pbar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pbar-label {
+  font-size: 0.62em;
+  color: #4a3020;
+  width: 22px;
+  letter-spacing: 1px;
+}
+
+.pbar-track {
+  flex: 1;
+  height: 6px;
+  background: #0a0400;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.pbar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.8s ease;
+}
+
+.pbar-atk { background: linear-gradient(90deg, #8a2010, #e04020); }
+.pbar-def { background: linear-gradient(90deg, #105030, #20a060); }
+
+#bmod-phases-header {
+  padding: 8px 16px 4px;
+  font-size: 0.68em;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #5a3a20;
+  background: rgba(212,160,23,0.04);
+  border-top: 1px solid #1a0800;
+}
+
+#bmod-phases {
+  padding: 6px 16px 10px;
+}
+
+.battle-phase {
+  border-bottom: 1px solid #120600;
+  padding: 7px 0;
+}
+
+.phase-name {
+  font-size: 0.8em;
+  font-weight: bold;
+  color: #c09040;
+  margin-bottom: 2px;
+}
+
+.phase-desc {
+  font-size: 0.72em;
+  color: #6a4a28;
+  font-style: italic;
+  margin-bottom: 4px;
+}
+
+.phase-losses {
+  display: flex;
+  gap: 16px;
+  font-size: 0.72em;
+}
+
+.phase-atk-loss { color: #c04030; }
+.phase-def-loss { color: #409060; }
+.phase-winner   { font-size: 0.7em; color: #8a6030; margin-left: auto; }
+
+#bmod-result-wrap {
+  padding: 14px 20px 10px;
+  text-align: center;
+  border-top: 1px solid #1a0800;
+  background: rgba(212,160,23,0.04);
+}
+
+#bmod-result-icon { font-size: 2em; margin-bottom: 4px; }
+
+#bmod-result-title {
+  font-size: 1.3em;
+  font-weight: bold;
+  letter-spacing: 3px;
+  margin-bottom: 8px;
+}
+
+.result-victory { color: #d4a017; text-shadow: 0 0 20px rgba(212,160,23,0.4); }
+.result-defeat  { color: #e03020; text-shadow: 0 0 20px rgba(220,40,20,0.4); }
+.result-pyrrhic { color: #c08030; }
+
+#bmod-casualties {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  font-size: 0.78em;
+  margin-bottom: 4px;
+}
+
+#bmod-atk-cas { color: #c04030; }
+#bmod-def-cas { color: #409060; }
+
+#bmod-continue {
+  display: block;
+  margin: 12px auto 16px;
+  background: linear-gradient(135deg, #5a1010, #a02020);
+  color: #f0d0c0;
+  border: 1px solid #8a2020;
+  padding: 9px 28px;
+  font-size: 0.82em;
+  font-family: 'Georgia', serif;
+  cursor: pointer;
+  border-radius: 4px;
+  letter-spacing: 2px;
+  transition: all 0.2s;
+}
+
+#bmod-continue:hover {
+  background: linear-gradient(135deg, #a02020, #d03030);
+  border-color: #e04040;
+}
+
+/* ===== SELL SECTION in trade modal ===== */
+.tmod-section-header {
+  padding: 8px 16px;
+  font-size: 0.66em;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  background: rgba(212,160,23,0.05);
+  border-top: 1px solid #1a1000;
+  border-bottom: 1px solid #1a1000;
+  color: #6a5028;
+}
+
+.sell-section { background: rgba(80,160,80,0.03); }
+.sell-section .tmod-section-header { color: #3a6028; }
+
+.trade-good-row.wanted {
+  background: rgba(80,160,80,0.04);
+  border-left: 2px solid #2a5020;
+}
+
+.wanted-tag {
+  background: #0a2810;
+  color: #50a050;
+  font-size: 0.7em;
+  padding: 1px 5px;
+  border-radius: 2px;
+  letter-spacing: 1px;
+}
+
+.tg-label.sell-label { background: #0a2008; color: #3a8030; }
+.tg-price.dim span   { color: #5a4020; }
+
+/* ===== IMPROVED EXISTING STYLES ===== */
+/* Tabs for buy/sell */
+.tmod-tabs {
+  display: flex;
+  border-bottom: 1px solid #1a1000;
+}
+
+.tmod-tab {
+  flex: 1;
+  padding: 8px;
+  text-align: center;
+  font-size: 0.75em;
+  cursor: pointer;
+  color: #4a3020;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+}
+
+.tmod-tab:hover { color: #8a6030; background: rgba(212,160,23,0.04); }
+.tmod-tab.active { color: #d4a017; border-bottom-color: #d4a017; }
+
+/* Improved action buttons */
+.action-count {
+  font-size: 0.72em;
+  color: #4a6a28;
+  display: block;
+  margin-top: 2px;
+}
