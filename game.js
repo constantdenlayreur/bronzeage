@@ -467,6 +467,15 @@ const G = {
   tollPolicy:   'normal', // 'low' | 'normal' | 'high' — Hellespont toll setting
   droughtLevel: 0,  // 0=good, 1=dry year (−30% grain), 2=severe drought (−55% grain)
 
+  // Internal factions
+  factions: {
+    military: { loyalty: 70 }, // soldiers, officers — need gold & arms
+    peasants:  { loyalty: 70 }, // farmers, craftsmen — need food & peace
+  },
+
+  // Price history for chart (one entry per turn)
+  priceHistory: [],
+
   // Local production upgrades (permanent investments)
   production: {
     farmland: 0,   // 0-3 levels: each +2 grain/turn   (cost ◎8 each)
@@ -727,7 +736,79 @@ function updateStability() {
   G.stability = Math.max(0, Math.min(100, G.stability + d));
 }
 
+// ─── FACTIONS ────────────────────────────────────────────────
+function updateFactions() {
+  const mil  = G.factions.military;
+  const peas = G.factions.peasants;
+  const warCount = Object.values(G.regionState)
+    .filter(rs => rs.diplo?.atWar && !rs.destroyed).length;
+
+  // Military loyalty: needs gold, paid garrison, strong walls
+  let milD = 0;
+  if (G.res.gold >= 15)     milD += 2;
+  else if (G.res.gold <= 3) milD -= 5;
+  else if (G.res.gold <= 8) milD -= 2;
+  if (G.res.gold < garrisonGoldCost()) milD -= 4; // unpaid upkeep
+  if (G.walls >= 4)         milD += 1;
+  if (G.cavalryBonus >= 2)  milD += 2;
+  if (G.infantry >= 15)     milD += 1;
+  milD -= warCount * 2; // wars wear down soldiers
+  if (G.stability < 40)     milD -= 2;
+  mil.loyalty = Math.max(0, Math.min(100, mil.loyalty + milD));
+
+  // Peasant loyalty: needs grain surplus, growing population, calm
+  let peasD = 0;
+  const grainNeed = popGrainConsumption();
+  if (G.res.grain >= grainNeed * 2)        peasD += 3;
+  else if (G.res.grain < grainNeed)        peasD -= 6;
+  else if (G.res.grain < grainNeed * 1.5)  peasD -= 1;
+  if (G.droughtLevel > 0)  peasD -= G.droughtLevel * 3;
+  if (G.population < 70)   peasD -= 2;
+  if (G.population >= 95)  peasD += 2;
+  if (G.res.gold >= 20)    peasD += 1; // prosperity trickles down
+  if (warCount > 1)        peasD -= 2;
+  peas.loyalty = Math.max(0, Math.min(100, peas.loyalty + peasD));
+}
+
+function checkFactionUprisings() {
+  const mil  = G.factions.military;
+  const peas = G.factions.peasants;
+
+  if (mil.loyalty < 30 && Math.random() < 0.35) {
+    const goldLost = Math.min(G.res.gold, 8);
+    const infLost  = Math.min(G.infantry, Math.floor(Math.random() * 5) + 3);
+    G.res.gold  = Math.max(0, G.res.gold  - goldLost);
+    G.infantry  = Math.max(0, G.infantry  - infLost);
+    G.stability = Math.max(0, G.stability - 10);
+    mil.loyalty = Math.min(100, mil.loyalty + 15); // tension vented
+    G.addLog(`⚔ Military mutiny! ${infLost} infantry desert, ◎${goldLost} looted. Stability −10.`, 'log-crisis');
+  }
+
+  if (peas.loyalty < 30 && Math.random() < 0.35) {
+    const grainLost = Math.min(G.res.grain, 5);
+    const popLost   = Math.floor(Math.random() * 6) + 4;
+    G.res.grain  = Math.max(0, G.res.grain  - grainLost);
+    G.population = Math.max(1, G.population - popLost);
+    G.stability  = Math.max(0, G.stability  - 15);
+    peas.loyalty = Math.min(100, peas.loyalty + 15); // tension vented
+    G.addLog(`👥 Peasant revolt! Population −${popLost}, grain −${grainLost}, stability −15.`, 'log-crisis');
+  }
+}
+
 // ─── RANDOM MINI-EVENTS ───────────────────────────────────────
+function recordPriceHistory() {
+  G.priceHistory.push({
+    turn: G.turn,
+    prices: {
+      grain:  getPrice('grain',  null),
+      copper: getPrice('copper', null),
+      tin:    getPrice('tin',    null),
+      bronze: getPrice('bronze', null),
+    },
+  });
+  if (G.priceHistory.length > 15) G.priceHistory.shift();
+}
+
 const MINI_EVENTS = [
   { w: 12, fn: () => { G.res.grain += 8;  G.addLog('🌾 Bumper harvest — grain stores +8.', 'log-good'); } },
   { w:  7, fn: () => { G.res.grain = Math.max(0, G.res.grain - 6); G.stability = Math.max(0, G.stability - 6);
@@ -1845,6 +1926,8 @@ function renderAll() {
   renderCityStats();
   renderActions();
   renderMarket();
+  renderPoliticsPanel();
+  renderPriceChart();
   drawMap();
 }
 
@@ -2250,6 +2333,160 @@ function renderMarket() {
       <div class="mkt-price ${cls}">◎${price.toFixed(1)} ${arrow}</div>
     </div>`;
   }).join('');
+}
+
+function renderPoliticsPanel() {
+  const container = document.getElementById('politics-content');
+  if (!container || container.style.display === 'none') return;
+
+  const mil  = G.factions.military;
+  const peas = G.factions.peasants;
+  const r    = G.res;
+
+  function loyaltyInfo(v) {
+    if (v >= 80) return { text: 'Loyal',     color: '#50a050' };
+    if (v >= 60) return { text: 'Content',   color: '#6a9050' };
+    if (v >= 40) return { text: 'Restless',  color: '#a07820' };
+    if (v >= 20) return { text: 'Angry',     color: '#c05030' };
+    return               { text: 'MUTINOUS', color: '#d03030' };
+  }
+
+  const milI  = loyaltyInfo(mil.loyalty);
+  const peasI = loyaltyInfo(peas.loyalty);
+  const milWarn  = mil.loyalty  < 30 ? ' <span class="faction-risk">⚠ UPRISING RISK</span>' : '';
+  const peasWarn = peas.loyalty < 30 ? ' <span class="faction-risk">⚠ UPRISING RISK</span>' : '';
+
+  container.innerHTML = `
+    <div class="faction-panel">
+      <div class="faction-block">
+        <div class="faction-row">
+          <span class="faction-icon">⚔</span>
+          <span class="faction-name">Military</span>
+          <span class="faction-status" style="color:${milI.color}">${milI.text}${milWarn}</span>
+          <div class="faction-bar-wrap"><div class="faction-bar" style="width:${mil.loyalty}%;background:${milI.color}"></div></div>
+          <span class="faction-val">${mil.loyalty}</span>
+        </div>
+        <div class="faction-actions">
+          <button class="faction-btn" ${r.gold < 5 ? 'disabled' : ''} onclick="appeaseMilitary()">Pay Bonus <span class="action-cost">◎5 → +12</span></button>
+          <button class="faction-btn" ${r.bronze < 2 ? 'disabled' : ''} onclick="armorMilitary()">Issue Arms <span class="action-cost">⚙2 → +8</span></button>
+        </div>
+      </div>
+      <div class="faction-block">
+        <div class="faction-row">
+          <span class="faction-icon">👥</span>
+          <span class="faction-name">Peasants</span>
+          <span class="faction-status" style="color:${peasI.color}">${peasI.text}${peasWarn}</span>
+          <div class="faction-bar-wrap"><div class="faction-bar" style="width:${peas.loyalty}%;background:${peasI.color}"></div></div>
+          <span class="faction-val">${peas.loyalty}</span>
+        </div>
+        <div class="faction-actions">
+          <button class="faction-btn" ${r.grain < 5 ? 'disabled' : ''} onclick="appeasePeasants()">Distribute Grain <span class="action-cost">🌾5 → +12</span></button>
+          <button class="faction-btn" ${r.gold < 8 ? 'disabled' : ''} onclick="holdFestival()">Hold Festival <span class="action-cost">◎8 → +10</span></button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderPriceChart() {
+  const container = document.getElementById('price-chart-panel');
+  if (!container || container.style.display === 'none') return;
+
+  const hist = G.priceHistory;
+  if (hist.length < 2) {
+    container.innerHTML = '<div style="padding:10px 12px;color:#4a3020;font-size:0.68em">Price history begins after the first year ends.</div>';
+    return;
+  }
+
+  const W = 300, H = 88;
+  const PAD = { top: 6, right: 6, bottom: 14, left: 24 };
+  const iW  = W - PAD.left - PAD.right;
+  const iH  = H - PAD.top  - PAD.bottom;
+
+  const LINES = [
+    { key: 'grain',  color: '#60a840' },
+    { key: 'copper', color: '#c07030' },
+    { key: 'tin',    color: '#7090c0' },
+    { key: 'bronze', color: '#c8a030' },
+  ];
+
+  let maxVal = 1;
+  hist.forEach(h => LINES.forEach(l => { if (h.prices[l.key] > maxVal) maxVal = h.prices[l.key]; }));
+  maxVal = Math.ceil(maxVal * 1.15);
+
+  const minT = hist[0].turn, maxT = hist[hist.length - 1].turn;
+  const tRange = Math.max(1, maxT - minT);
+
+  const xOf  = t   => PAD.left + ((t - minT) / tRange) * iW;
+  const yOf  = val => PAD.top  + iH - (val / maxVal)   * iH;
+
+  let grid = '';
+  [0, Math.round(maxVal / 2), maxVal].forEach(v => {
+    const y = yOf(v);
+    grid += `<line x1="${PAD.left}" y1="${y.toFixed(1)}" x2="${W - PAD.right}" y2="${y.toFixed(1)}" stroke="#1a1000" stroke-width="0.8"/>`;
+    grid += `<text x="${PAD.left - 3}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="6.5" fill="#4a3020">${v}</text>`;
+  });
+
+  let xLabels = '';
+  hist.forEach((h, i) => {
+    if (i === 0 || i === hist.length - 1 || hist.length <= 7 || i % 3 === 0) {
+      xLabels += `<text x="${xOf(h.turn).toFixed(1)}" y="${H - 1}" text-anchor="middle" font-size="6" fill="#4a3020">${h.turn}</text>`;
+    }
+  });
+
+  let paths = '';
+  LINES.forEach(l => {
+    const pts = hist.map(h => `${xOf(h.turn).toFixed(1)},${yOf(h.prices[l.key]).toFixed(1)}`).join(' ');
+    paths += `<polyline points="${pts}" fill="none" stroke="${l.color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const last = hist[hist.length - 1];
+    paths += `<circle cx="${xOf(last.turn).toFixed(1)}" cy="${yOf(last.prices[l.key]).toFixed(1)}" r="2" fill="${l.color}"/>`;
+  });
+
+  // Legend at top-right
+  let legend = '';
+  const legLabels = [['🌾','grain'],['⚒','copper'],['🔩','tin'],['⚙','bronze']];
+  legLabels.forEach(([icon, key], i) => {
+    const l = LINES[i];
+    const lx = PAD.left + i * 66;
+    legend += `<text x="${lx}" y="${H - 1}" font-size="6.5" fill="${l.color}">${icon}</text>`;
+  });
+
+  container.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">
+    <rect width="${W}" height="${H}" fill="#050300"/>
+    ${grid}${paths}${xLabels}${legend}
+  </svg>`;
+}
+
+function appeaseMilitary() {
+  if (G.res.gold < 5) return;
+  G.res.gold -= 5;
+  G.factions.military.loyalty = Math.min(100, G.factions.military.loyalty + 12);
+  G.addLog('Paid military bonus — troop morale improves.', 'log-good');
+  renderPoliticsPanel(); renderTopBar();
+}
+
+function armorMilitary() {
+  if (G.res.bronze < 2) return;
+  G.res.bronze -= 2;
+  G.factions.military.loyalty = Math.min(100, G.factions.military.loyalty + 8);
+  G.addLog('Issued arms to garrison — military loyalty +8.', 'log-good');
+  renderPoliticsPanel(); renderTopBar();
+}
+
+function appeasePeasants() {
+  if (G.res.grain < 5) return;
+  G.res.grain -= 5;
+  G.factions.peasants.loyalty = Math.min(100, G.factions.peasants.loyalty + 12);
+  G.addLog('Distributed grain to the people — peasant morale improves.', 'log-good');
+  renderPoliticsPanel(); renderTopBar();
+}
+
+function holdFestival() {
+  if (G.res.gold < 8) return;
+  G.res.gold -= 8;
+  G.factions.peasants.loyalty = Math.min(100, G.factions.peasants.loyalty + 10);
+  G.stability = Math.min(100, G.stability + 5);
+  G.addLog('Festival held — people rejoice, stability +5.', 'log-good');
+  renderPoliticsPanel(); renderTopBar();
 }
 
 function renderRegionInfo(id) {
@@ -2667,6 +2904,13 @@ function advanceTurn() {
 
   // 3d. Update social stability
   updateStability();
+
+  // 3e. Update factions and check uprisings
+  updateFactions();
+  checkFactionUprisings();
+
+  // 3f. Record price snapshot for chart
+  recordPriceHistory();
 
   // 4. Check starvation
   if (G.population <= 0) {
@@ -3128,6 +3372,24 @@ function endGame(victory, text, score) {
     : '';
   screen.style.display = 'flex';
 }
+
+// ─── BOTTOM BAR TABS ─────────────────────────────────────────
+document.addEventListener('click', e => {
+  const tab = e.target.closest('.bottom-tab');
+  if (!tab) return;
+  const group  = tab.dataset.group;
+  const target = tab.dataset.target;
+  // Deactivate all tabs in group, hide all content panels
+  document.querySelectorAll(`.bottom-tab[data-group="${group}"]`).forEach(t => t.classList.remove('active'));
+  document.querySelectorAll(`.bottom-tab-content[data-group="${group}"]`).forEach(p => { p.style.display = 'none'; });
+  // Activate clicked tab and show its panel
+  tab.classList.add('active');
+  const panel = document.getElementById(target);
+  if (panel) { panel.style.display = ''; }
+  // Render content for newly shown panel
+  if (target === 'politics-content')  renderPoliticsPanel();
+  if (target === 'price-chart-panel') renderPriceChart();
+});
 
 // ─── START GAME ──────────────────────────────────────────────
 document.getElementById('begin-btn').addEventListener('click', () => {

@@ -147,14 +147,24 @@
   <!-- Bottom: market + log -->
   <div id="bottom-bar">
     <div id="market-panel">
-      <div class="panel-header">⚖ MARKET PRICES</div>
-      <div id="market-prices">
+      <div class="bottom-tabs">
+        <div class="bottom-tab active" data-group="market" data-target="market-prices">⚖ MARKET</div>
+        <div class="bottom-tab" data-group="market" data-target="price-chart-panel">📈 CHART</div>
+      </div>
+      <div id="market-prices" class="bottom-tab-content" data-group="market">
+        <!-- filled by JS -->
+      </div>
+      <div id="price-chart-panel" class="bottom-tab-content" data-group="market" style="display:none">
         <!-- filled by JS -->
       </div>
     </div>
     <div id="log-panel">
-      <div class="panel-header">📜 CHRONICLES</div>
-      <div id="log-entries"></div>
+      <div class="bottom-tabs">
+        <div class="bottom-tab active" data-group="log" data-target="log-entries">📜 CHRONICLES</div>
+        <div class="bottom-tab" data-group="log" data-target="politics-content">⚖ POLITICS</div>
+      </div>
+      <div id="log-entries" class="bottom-tab-content" data-group="log"></div>
+      <div id="politics-content" class="bottom-tab-content" data-group="log" style="display:none"></div>
     </div>
   </div>
 

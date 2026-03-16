@@ -400,7 +400,7 @@ html, body {
 /* ===== BOTTOM BAR ===== */
 #bottom-bar {
   display: flex;
-  height: 90px;
+  height: 152px;
   border-top: 1px solid #1a0c00;
   background: #080400;
   flex-shrink: 0;
@@ -422,6 +422,37 @@ html, body {
   align-items: center;
   flex-wrap: wrap;
 }
+
+#price-chart-panel {
+  flex: 1;
+  overflow: hidden;
+  padding: 2px 4px;
+}
+
+/* ── Bottom bar tabs ── */
+.bottom-tabs {
+  display: flex;
+  border-bottom: 1px solid #1a1000;
+  flex-shrink: 0;
+}
+
+.bottom-tab {
+  flex: 1;
+  padding: 5px 4px;
+  text-align: center;
+  font-size: 0.62em;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: #4a3020;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s;
+}
+
+.bottom-tab:hover { color: #8a6030; background: rgba(212,160,23,0.04); }
+.bottom-tab.active { color: #d4a017; border-bottom-color: #d4a017; }
+
+.bottom-tab-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
 .mkt-item {
   display: flex;
@@ -448,6 +479,67 @@ html, body {
   overflow-y: auto;
   padding: 4px 10px;
 }
+
+/* ── Politics panel ── */
+#politics-content { flex: 1; overflow-y: auto; }
+
+.faction-panel {
+  display: flex;
+  padding: 6px 10px;
+  gap: 16px;
+}
+
+.faction-block { flex: 1; }
+
+.faction-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.faction-icon { font-size: 0.9em; }
+.faction-name { font-size: 0.68em; letter-spacing: 1px; text-transform: uppercase; color: #8a6030; min-width: 58px; }
+.faction-status { font-size: 0.65em; flex: 1; }
+.faction-val { font-size: 0.68em; color: #d4a017; min-width: 24px; text-align: right; }
+.faction-risk { color: #d03030; font-weight: bold; }
+
+.faction-bar-wrap {
+  flex: 1;
+  height: 5px;
+  background: #1a1000;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.faction-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s;
+}
+
+.faction-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.faction-btn {
+  flex: 1;
+  background: rgba(212,160,23,0.06);
+  border: 1px solid #2a1800;
+  color: #8a6030;
+  font-size: 0.6em;
+  padding: 3px 5px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-family: inherit;
+  letter-spacing: 0.5px;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.faction-btn:hover:not(:disabled) { background: rgba(212,160,23,0.14); color: #d4a017; }
+.faction-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .log-entry {
   font-size: 0.7em;
