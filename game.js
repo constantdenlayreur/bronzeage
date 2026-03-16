@@ -420,7 +420,7 @@ const G = {
   garrison: 15,
   vassalOfHatti: true,
   tributeDoubleThisTurn: false,
-  actionsDone: new Set(),  // actions performed this turn
+  cavalryBonus: 0,  // elite bonus from trained cavalry (max 3)
 
   // Market price multipliers (affected by events)
   priceMult: {
@@ -895,60 +895,156 @@ function renderCityStats() {
 
 function renderActions() {
   const container = document.getElementById('action-list');
-  const done = G.actionsDone;
   const r = G.res;
 
   const actions = [
     {
-      id: 'craft',
-      label: `⚙ Forge Bronze (×2)`,
+      id: 'craft2',
+      label: `⚙ Forge Bronze ×2`,
       cost: `⚒4 🔩2`,
-      enabled: canCraft(2) && !done.has('craft'),
-      fn: () => { craftBronze(2); done.add('craft'); renderAll(); }
+      enabled: canCraft(2),
+      fn: () => { craftBronze(2); renderAll(); }
     },
     {
       id: 'craft1',
-      label: `⚙ Forge Bronze (×1)`,
+      label: `⚙ Forge Bronze ×1`,
       cost: `⚒2 🔩1`,
-      enabled: canCraft(1) && !done.has('craft1'),
-      fn: () => { craftBronze(1); done.add('craft1'); renderAll(); }
+      enabled: canCraft(1),
+      fn: () => { craftBronze(1); renderAll(); }
     },
     {
-      id: 'recruit',
-      label: `⚔ Recruit Warriors (+5)`,
-      cost: `🌾3 ◎2`,
-      enabled: r.grain >= 3 && r.gold >= 2 && !done.has('recruit'),
+      id: 'craft3',
+      label: `⚙ Forge Bronze ×3`,
+      cost: `⚒6 🔩3`,
+      enabled: canCraft(3),
+      fn: () => { craftBronze(3); renderAll(); }
+    },
+    {
+      id: 'recruit5',
+      label: `⚔ Recruit Warriors +5`,
+      cost: `🌾2 ◎1`,
+      enabled: r.grain >= 2 && r.gold >= 1,
       fn: () => {
-        r.grain -= 3; r.gold -= 2;
+        r.grain -= 2; r.gold -= 1;
         G.garrison += 5;
-        done.add('recruit');
         G.addLog('Recruited 5 warriors for the garrison.', 'log-good');
         renderAll();
       }
     },
     {
+      id: 'recruit10',
+      label: `⚔ Recruit Warriors +10`,
+      cost: `🌾4 ◎2`,
+      enabled: r.grain >= 4 && r.gold >= 2,
+      fn: () => {
+        r.grain -= 4; r.gold -= 2;
+        G.garrison += 10;
+        G.addLog('Recruited 10 warriors for the garrison.', 'log-good');
+        renderAll();
+      }
+    },
+    {
       id: 'walls',
-      label: `🏰 Repair/Upgrade Walls (+1)`,
+      label: `🏰 Reinforce Walls +1`,
       cost: `⚙5`,
-      enabled: r.bronze >= 5 && G.walls < G.maxWalls && !done.has('walls'),
+      enabled: r.bronze >= 5 && G.walls < G.maxWalls,
       fn: () => {
         r.bronze -= 5;
         G.walls = Math.min(G.maxWalls, G.walls + 1);
-        done.add('walls');
         G.addLog('Walls reinforced. Defense increases.', 'log-good');
         renderAll();
       }
     },
     {
-      id: 'stockpile',
-      label: `🌾 Build Grain Stockpile (+5)`,
-      cost: `◎4`,
-      enabled: r.gold >= 4 && !done.has('stockpile'),
+      id: 'mercs',
+      label: `🗡 Hire Mercenaries +8`,
+      cost: `🥈5`,
+      enabled: r.silver >= 5,
       fn: () => {
-        r.gold -= 4;
-        r.grain += 5;
-        done.add('stockpile');
-        G.addLog('Bought additional grain stores.', 'log-good');
+        r.silver -= 5;
+        G.garrison += 8;
+        G.addLog('Hired mercenaries. +8 garrison.', 'log-good');
+        renderAll();
+      }
+    },
+    {
+      id: 'grain5',
+      label: `🌾 Buy Grain ×5`,
+      cost: `◎4`,
+      enabled: r.gold >= 4,
+      fn: () => {
+        r.gold -= 4; r.grain += 5;
+        G.addLog('Purchased grain stores.', 'log-good');
+        renderAll();
+      }
+    },
+    {
+      id: 'cavalry',
+      label: `🐎 Train Cavalry`,
+      cost: `🐎1`,
+      enabled: r.horses >= 1 && G.cavalryBonus < 3,
+      fn: () => {
+        r.horses -= 1;
+        G.cavalryBonus = Math.min(3, G.cavalryBonus + 1);
+        G.addLog(`Cavalry trained. Elite bonus now ×${G.cavalryBonus}.`, 'log-good');
+        renderAll();
+      }
+    },
+    {
+      id: 'sell-oil',
+      label: `🫒 Sell Olive Oil`,
+      cost: `🫒${r.olive_oil} → ◎${r.olive_oil * 3}`,
+      enabled: r.olive_oil > 0,
+      fn: () => {
+        const gold = r.olive_oil * 3;
+        G.addLog(`Sold ${r.olive_oil} olive oil for ◎${gold}.`, 'log-trade');
+        r.gold += gold; r.olive_oil = 0;
+        renderAll();
+      }
+    },
+    {
+      id: 'sell-pot',
+      label: `🏺 Sell Pottery`,
+      cost: `🏺${r.pottery} → ◎${r.pottery * 2}`,
+      enabled: r.pottery > 0,
+      fn: () => {
+        const gold = r.pottery * 2;
+        G.addLog(`Sold ${r.pottery} pottery for ◎${gold}.`, 'log-trade');
+        r.gold += gold; r.pottery = 0;
+        renderAll();
+      }
+    },
+    {
+      id: 'sell-timber',
+      label: `🪵 Sell Timber`,
+      cost: `🪵${r.timber} → ◎${r.timber * 2}`,
+      enabled: r.timber > 0,
+      fn: () => {
+        const gold = r.timber * 2;
+        G.addLog(`Sold ${r.timber} timber for ◎${gold}.`, 'log-trade');
+        r.gold += gold; r.timber = 0;
+        renderAll();
+      }
+    },
+    {
+      id: 'sell-horse',
+      label: `🐎 Convert Horse to Gold`,
+      cost: `🐎1 → ◎7`,
+      enabled: r.horses >= 1,
+      fn: () => {
+        r.horses -= 1; r.gold += 7;
+        G.addLog('Sold a horse for ◎7.', 'log-trade');
+        renderAll();
+      }
+    },
+    {
+      id: 'textiles',
+      label: `🧵 Produce Textiles`,
+      cost: `🌾3 → 🥈4`,
+      enabled: r.grain >= 3,
+      fn: () => {
+        r.grain -= 3; r.silver += 4;
+        G.addLog('Converted grain to silver via textile trade.', 'log-good');
         renderAll();
       }
     },
@@ -1211,7 +1307,6 @@ document.getElementById('next-turn-btn').addEventListener('click', () => {
 });
 
 function advanceTurn() {
-  G.actionsDone.clear();
   G.tradeDoneThisTurn = false;
 
   // 1. Collect production
@@ -1242,32 +1337,221 @@ function advanceTurn() {
     if (ev.logText) G.addLog(ev.logText, ev.logClass);
 
     if (ev.isSiege) {
-      // siege resolved after modal
       showEventModal(ev, summary, () => {
         const siegeEff = ev.effects.find(e => e.type === 'siege');
-        if (siegeEff) resolveSiege(siegeEff.attackStrength);
-        checkVictory();
-        renderAll();
+        const battleConfig = siegeEff ? {
+          attacker: 'Mycenaean Host',
+          attackerIcon: '🛡',
+          baseSize: siegeEff.attackStrength,
+          type: 'siege',
+          desc: 'A great Achaean fleet besieges the walls of Troy!'
+        } : null;
+        if (battleConfig) {
+          processBattleQueue([battleConfig], () => { renderAll(); checkTurnEnd(); });
+        } else {
+          renderAll(); checkTurnEnd();
+        }
       });
     } else if (ev.isFinal) {
       showEventModal(ev, summary, () => {
-        // Final turn - after they click continue, game proceeds normally
-        renderAll();
+        buildAndProcessRandomBattles(() => { renderAll(); checkTurnEnd(); });
       });
     } else {
       showEventModal(ev, summary, () => {
-        renderAll();
+        buildAndProcessRandomBattles(() => { renderAll(); checkTurnEnd(); });
       });
     }
+  } else {
+    buildAndProcessRandomBattles(() => { renderAll(); checkTurnEnd(); });
+  }
+}
+
+function checkTurnEnd() {
+  if (G.turn > G.maxTurns) checkVictory();
+}
+
+function buildAndProcessRandomBattles(callback) {
+  const t = G.turn;
+  const queue = [];
+
+  // Kashka raiders (turns 2-10)
+  if (t >= 2 && t <= 10 && Math.random() < 0.22) {
+    queue.push({
+      attacker: 'Kashka Raiders',
+      attackerIcon: '🗡',
+      baseSize: 12 + Math.floor(Math.random() * 22),
+      type: 'raid',
+      desc: 'A Kashka raiding party descends from the northern hills.'
+    });
   }
 
-  // 7. Check victory (after final turn)
-  if (G.turn > G.maxTurns) {
-    checkVictory();
-    return;
+  // Sea Peoples (turns 6-15)
+  if (t >= 6 && t <= 15 && Math.random() < (t >= 8 ? 0.32 : 0.15)) {
+    queue.push({
+      attacker: 'Sea Peoples',
+      attackerIcon: '🏴‍☠️',
+      baseSize: 18 + Math.floor(Math.random() * 40),
+      type: t >= 12 ? 'invasion' : 'raid',
+      desc: 'The mysterious sea raiders have landed on Trojan shores.'
+    });
   }
 
-  renderAll();
+  // Refugee bandits (turns 12-15)
+  if (t >= 12 && t <= 15 && Math.random() < 0.20) {
+    queue.push({
+      attacker: 'Refugee Bandits',
+      attackerIcon: '👥',
+      baseSize: 8 + Math.floor(Math.random() * 15),
+      type: 'raid',
+      desc: 'Desperate refugees from fallen cities have turned to raiding.'
+    });
+  }
+
+  processBattleQueue(queue, callback);
+}
+
+function processBattleQueue(queue, callback) {
+  if (!queue.length) { callback(); return; }
+  const config = queue.shift();
+  const result = simulateBattle(config);
+  showBattleModal(result, () => {
+    applyBattleResult(result);
+    processBattleQueue(queue, callback);
+  });
+}
+
+// ─── BATTLE SYSTEM ────────────────────────────────────────────
+function simulateBattle(config) {
+  const typeMultiplier = { siege: 1.25, invasion: 1.1, raid: 0.8 }[config.type] || 1.0;
+  const atkSize = Math.round(config.baseSize * (0.8 + Math.random() * 0.4));
+
+  const moraleMult = G.population > 70 ? 1.12 : G.population > 40 ? 1.0 : 0.82;
+  const defBase = G.garrison * (1 + G.walls * 0.28) * moraleMult + G.cavalryBonus * 5;
+
+  const atkBase = atkSize * typeMultiplier;
+
+  const phaseNames = ['Advance & Skirmish', 'Main Assault', 'Final Clash'];
+  const phaseDescs = [
+    'Archers and skirmishers exchange fire as the attackers advance.',
+    'The main force storms the walls and gate.',
+    'The battle reaches its climax — one side gives way.'
+  ];
+
+  let atkTotalRolls = 0, defTotalRolls = 0;
+  let atkTotalCas = 0, defTotalCas = 0;
+  const rounds = [];
+
+  for (let i = 0; i < 3; i++) {
+    const atkRoll = atkBase * (0.55 + Math.random() * 0.9);
+    const defRoll = defBase * (0.60 + Math.random() * 0.8);
+    const atkCas  = Math.floor(atkSize * (0.04 + Math.random() * 0.08));
+    const defCas  = Math.floor(G.garrison * (0.03 + Math.random() * 0.07));
+    atkTotalRolls += atkRoll;
+    defTotalRolls += defRoll;
+    atkTotalCas   += atkCas;
+    defTotalCas   += defCas;
+    rounds.push({ name: phaseNames[i], desc: phaseDescs[i], atkRoll, defRoll, atkCas, defCas });
+  }
+
+  const ratio = defTotalRolls / atkTotalRolls;
+  let outcome;
+  if (ratio >= 1.5)      outcome = 'decisive_victory';
+  else if (ratio >= 1.0) outcome = 'victory';
+  else if (ratio >= 0.80) outcome = 'pyrrhic';
+  else if (ratio >= 0.55) outcome = 'defeat';
+  else                   outcome = 'sack';
+
+  return { config, atkSize, rounds, outcome, atkTotalCas, defTotalCas, atkTotalRolls, defTotalRolls };
+}
+
+function applyBattleResult(result) {
+  const { outcome, defTotalCas, atkTotalCas, config } = result;
+  if (outcome === 'sack') {
+    const garLoss = Math.floor(G.garrison * 0.60);
+    G.garrison   = Math.max(0, G.garrison - garLoss);
+    G.walls      = Math.max(0, G.walls - 2);
+    G.population = Math.max(0, Math.floor(G.population * 0.80));
+    G.res.grain  = Math.max(0, Math.floor(G.res.grain * 0.50));
+    G.addLog(`💀 CITY SACKED by ${config.attacker}! Walls breached, people slain.`, 'log-crisis');
+    if (G.walls <= 0 || G.population <= 0) {
+      endGame(false, `Troy has been sacked and its walls thrown down. The city burns. The Bronze Age claims one more victim.`);
+    }
+  } else if (outcome === 'defeat') {
+    G.garrison   = Math.max(0, G.garrison - Math.floor(G.garrison * 0.40));
+    G.walls      = Math.max(0, G.walls - 1);
+    G.population = Math.max(0, Math.floor(G.population * 0.90));
+    G.res.grain  = Math.max(0, Math.floor(G.res.grain * 0.75));
+    G.addLog(`⚠ Defeated by ${config.attacker}. Heavy losses sustained.`, 'log-crisis');
+  } else if (outcome === 'pyrrhic') {
+    G.garrison   = Math.max(0, G.garrison - Math.floor(G.garrison * 0.20));
+    G.population = Math.max(0, Math.floor(G.population * 0.95));
+    G.addLog(`⚔ ${config.attacker} repelled — but at great cost.`, 'log-event');
+  } else if (outcome === 'victory') {
+    G.garrison   = Math.max(0, G.garrison - Math.floor(G.garrison * 0.05));
+    G.addLog(`✓ ${config.attacker} driven back. Troy holds!`, 'log-good');
+  } else {
+    G.addLog(`🏆 ${config.attacker} crushed decisively. Troy's glory grows!`, 'log-good');
+  }
+}
+
+function showBattleModal(result, onDone) {
+  const { config, atkSize, rounds, outcome, atkTotalCas, defTotalCas, atkTotalRolls, defTotalRolls } = result;
+  const year = 1250 - (G.turn - 1) * 7;
+
+  document.getElementById('bmod-year').textContent    = `${year} BCE`;
+  document.getElementById('bmod-title').textContent   = `Battle of Troy — ${config.attacker}`;
+  document.getElementById('bmod-subtitle').textContent = config.desc;
+  document.getElementById('bmod-atk-icon').textContent = config.attackerIcon;
+  document.getElementById('bmod-atk-name').textContent = config.attacker;
+  document.getElementById('bmod-atk-size').textContent = `Army: ${atkSize}`;
+  document.getElementById('bmod-atk-power').textContent = `Power: ${Math.round(atkTotalRolls)}`;
+  document.getElementById('bmod-def-size').textContent  = `Garrison: ${G.garrison}`;
+  document.getElementById('bmod-def-power').textContent = `Power: ${Math.round(defTotalRolls)}`;
+  document.getElementById('bmod-def-walls').textContent = `🏰 Walls ×${(1 + G.walls * 0.28).toFixed(2)}`;
+
+  const maxPow = Math.max(atkTotalRolls, defTotalRolls);
+  document.getElementById('bmod-bar-atk').style.width = `${Math.round(atkTotalRolls / maxPow * 100)}%`;
+  document.getElementById('bmod-bar-def').style.width = `${Math.round(defTotalRolls / maxPow * 100)}%`;
+
+  document.getElementById('bmod-phases').innerHTML = rounds.map((rnd, i) => {
+    const winner = rnd.defRoll >= rnd.atkRoll ? '🛡 Defenders hold' : '⚔ Attackers press';
+    return `<div class="battle-phase">
+      <div class="phase-name">Phase ${i+1}: ${rnd.name}</div>
+      <div class="phase-desc">${rnd.desc}</div>
+      <div class="phase-losses">
+        <span class="phase-atk-loss">⚔ −${rnd.atkCas}</span>
+        <span class="phase-winner">${winner}</span>
+        <span class="phase-def-loss">🛡 −${rnd.defCas}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const outcomeInfo = {
+    decisive_victory: { icon: '🏆', title: 'DECISIVE VICTORY', cls: 'result-victory' },
+    victory:          { icon: '✓',  title: 'VICTORY',          cls: 'result-victory' },
+    pyrrhic:          { icon: '⚔',  title: 'PYRRHIC VICTORY',  cls: 'result-pyrrhic' },
+    defeat:           { icon: '💀', title: 'DEFEAT',            cls: 'result-defeat' },
+    sack:             { icon: '🔥', title: 'CITY SACKED',       cls: 'result-defeat' },
+  }[outcome];
+
+  document.getElementById('bmod-result-icon').textContent  = outcomeInfo.icon;
+  const titleEl = document.getElementById('bmod-result-title');
+  titleEl.textContent = outcomeInfo.title;
+  titleEl.className   = outcomeInfo.cls;
+
+  document.getElementById('bmod-atk-cas').textContent = `${config.attacker} casualties: ${atkTotalCas}`;
+  document.getElementById('bmod-def-cas').textContent = `Troy casualties: ${defTotalCas}`;
+
+  const modal = document.getElementById('battle-modal');
+  modal.style.display = 'flex';
+
+  const btn = document.getElementById('bmod-continue');
+  const handler = () => {
+    modal.style.display = 'none';
+    btn.removeEventListener('click', handler);
+    onDone();
+  };
+  btn.addEventListener('click', handler);
 }
 
 function checkVictory() {
