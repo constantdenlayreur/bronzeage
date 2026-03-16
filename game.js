@@ -252,6 +252,22 @@ const BASE_PRICES = {
   purple_dye:8,
 };
 
+// ─── CITY LIST (attackable city markers on the map) ─────────
+// x/y are reference coordinates (820×480 space)
+const CITY_LIST = [
+  { id:'hattusa',  label:'HATTUSA',  x:355, y:128, region:'hatti'    },
+  { id:'nineveh',  label:'NINEVEH',  x:542, y:190, region:'assyria'  },
+  { id:'babylon',  label:'BABYLON',  x:552, y:308, region:'babylon'  },
+  { id:'thebes',   label:'THEBES',   x:330, y:478, region:'egypt'    },
+  { id:'ugarit',   label:'UGARIT',   x:428, y:215, region:'ugarit'   },
+  { id:'mycenae',  label:'MYCENAE',  x:72,  y:192, region:'mycenae'  },
+  { id:'knossos',  label:'KNOSSOS',  x:128, y:310, region:'crete'    },
+  { id:'susa',     label:'SUSA',     x:652, y:288, region:'elam'     },
+  { id:'enkomi',   label:'ENKOMI',   x:352, y:278, region:'cyprus'   },
+  { id:'ashdod',   label:'ASHDOD',   x:398, y:358, region:'canaan'   },
+  { id:'apasa',    label:'APASA',    x:268, y:180, region:'arzawa'   },
+];
+
 // ─── HISTORICAL EVENTS ──────────────────────────────────────
 const EVENTS = [
   {
@@ -692,8 +708,9 @@ const canvas = document.getElementById('map-canvas');
 const ctx    = canvas.getContext('2d');
 
 let scaleX = 1, scaleY = 1;
-let hoveredRegion = null;
+let hoveredRegion    = null;
 let selectedRegionId = null;
+let armySelected     = false;  // true when player clicked their army pawn
 
 function resizeCanvas() {
   const container = document.getElementById('map-area');
@@ -769,18 +786,7 @@ function drawMap() {
   ctx.restore();
 
   // ── 6. City dot markers ────────────────────────────────────
-  const cities = [
-    { id:'hattusa',  label:'HATTUSA',  x:355, y:128, region:'hatti'    },
-    { id:'nineveh',  label:'NINEVEH',  x:542, y:190, region:'assyria'  },
-    { id:'babylon',  label:'BABYLON',  x:552, y:308, region:'babylon'  },
-    { id:'thebes',   label:'THEBES',   x:330, y:478, region:'egypt'    },
-    { id:'ugarit',   label:'UGARIT',   x:428, y:215, region:'ugarit'   },
-    { id:'mycenae',  label:'MYCENAE',  x:72,  y:192, region:'mycenae'  },
-    { id:'knossos',  label:'KNOSSOS',  x:128, y:310, region:'crete'    },
-    { id:'susa',     label:'SUSA',     x:652, y:288, region:'elam'     },
-    { id:'enkomi',   label:'ENKOMI',   x:352, y:278, region:'cyprus'   },
-    { id:'ashdod',   label:'ASHDOD',   x:398, y:358, region:'canaan'   },
-  ];
+  const cities = CITY_LIST;
 
   ctx.save();
   cities.forEach(c => {
@@ -844,7 +850,68 @@ function drawMap() {
   ctx.fillText('TROY', tx, ty - 11 * s);
   ctx.restore();
 
-  // ── 8. Compass rose ───────────────────────────────────────
+  // ── 8. Army pawn at Troy ──────────────────────────────────
+  const [pawX, pawY] = sp(200, 174);  // slightly offset from Troy star
+  const pawR = 9 * s;
+  ctx.save();
+  if (armySelected) {
+    // Pulse ring
+    ctx.beginPath();
+    ctx.arc(pawX, pawY, pawR + 5 * s, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(240,220,60,0.7)';
+    ctx.lineWidth = 2 * s;
+    ctx.stroke();
+    // Highlight attackable cities
+    CITY_LIST.forEach(c => {
+      const rs = G.regionState[c.region];
+      if (rs?.destroyed) return;
+      const [cx, cy] = sp(c.x, c.y);
+      ctx.beginPath();
+      ctx.arc(cx, cy, 7 * s, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(220,60,40,0.75)';
+      ctx.lineWidth = 1.5 * s;
+      ctx.stroke();
+    });
+  }
+  // Pawn body
+  ctx.beginPath();
+  ctx.arc(pawX, pawY, pawR, 0, Math.PI * 2);
+  ctx.fillStyle = armySelected ? '#e0c020' : '#9a7010';
+  ctx.shadowColor = armySelected ? 'rgba(240,220,60,0.9)' : 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur  = armySelected ? 10 : 4;
+  ctx.fill();
+  ctx.strokeStyle = armySelected ? '#fff080' : '#c89018';
+  ctx.lineWidth = 1 * s;
+  ctx.stroke();
+  // Sword icon inside
+  ctx.shadowBlur = 0;
+  ctx.font = `${Math.round(10 * s)}px serif`;
+  ctx.fillStyle = armySelected ? '#3a2000' : '#f0d060';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('⚔', pawX, pawY);
+  // Troop count badge
+  const tot = getTotalGarrison();
+  ctx.font = `bold ${Math.round(6.5 * s)}px sans-serif`;
+  ctx.fillStyle = '#fff';
+  ctx.textBaseline = 'top';
+  ctx.fillText(tot, pawX + 7 * s, pawY + 5 * s);
+  ctx.restore();
+
+  // Army selection hint text
+  if (armySelected) {
+    ctx.save();
+    ctx.font = `italic ${Math.round(8.5 * s)}px Georgia`;
+    ctx.fillStyle = 'rgba(240,210,80,0.9)';
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur  = 3;
+    ctx.textAlign   = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText('Select a city to attack', w / 2, 6 * s);
+    ctx.restore();
+  }
+
+  // ── 9. Compass rose ───────────────────────────────────────
   drawCompassRose(w - 44 * s, h - 44 * s, 26 * s);
 
   // ── 9. Vignette ───────────────────────────────────────────
@@ -1236,9 +1303,49 @@ canvas.addEventListener('mouseleave', () => {
   drawMap();
 });
 
+// Returns city from CITY_LIST if click lands within ~13px of a city dot
+function getCityAtPoint(px, py) {
+  for (const c of CITY_LIST) {
+    const [cx, cy] = sp(c.x, c.y);
+    if (Math.hypot(px - cx, py - cy) <= 13 * Math.min(scaleX, scaleY)) return c;
+  }
+  return null;
+}
+
 canvas.addEventListener('click', e => {
   const rect = canvas.getBoundingClientRect();
-  const id = getRegionAtPoint(e.clientX - rect.left, e.clientY - rect.top);
+  const px = e.clientX - rect.left;
+  const py = e.clientY - rect.top;
+
+  // Check click on army pawn (ref: 200,174)
+  const [pawX, pawY] = sp(200, 174);
+  const s = Math.min(scaleX, scaleY);
+  if (Math.hypot(px - pawX, py - pawY) <= 11 * s) {
+    armySelected = !armySelected;
+    drawMap();
+    return;
+  }
+
+  // If army is selected, a city click triggers an expedition
+  if (armySelected) {
+    const city = getCityAtPoint(px, py);
+    armySelected = false;
+    if (city) {
+      const rs = G.regionState[city.region];
+      if (rs?.destroyed) {
+        G.addLog(`${city.label} is already destroyed — nothing to raid.`, 'log-event');
+        drawMap();
+        return;
+      }
+      launchExpedition(city);
+      return;
+    }
+    drawMap();
+    return;
+  }
+
+  // Normal region click
+  const id = getRegionAtPoint(px, py);
   if (!id || id === 'troy') return;
   selectedRegionId = id;
   drawMap();
@@ -1878,17 +1985,6 @@ function renderActions() {
       }
     },
     {
-      id: 'grain5',
-      label: `🌾 Buy Grain ×5`,
-      cost: `◎4`,
-      enabled: r.gold >= 4,
-      fn: () => {
-        r.gold -= 4; r.grain += 5;
-        G.addLog('Purchased grain stores.', 'log-good');
-        renderAll();
-      }
-    },
-    {
       id: 'cavalry',
       label: `🐎 Train Cavalry`,
       cost: `🐎1`,
@@ -2469,15 +2565,22 @@ function buildAndProcessRandomBattles(callback) {
     });
   }
 
-  // Sea Peoples (turns 6-15)
-  if (t >= 6 && t <= 15 && Math.random() < (t >= 8 ? 0.32 : 0.15)) {
-    queue.push({
-      attacker: 'Sea Peoples',
-      attackerIcon: '🏴‍☠️',
-      baseSize: 18 + Math.floor(Math.random() * 40),
-      type: t >= 12 ? 'invasion' : 'raid',
-      desc: 'The mysterious sea raiders have landed on Trojan shores.'
-    });
+  // Sea Peoples (turns 6-15) — grow dramatically as the Bronze Age collapses
+  if (t >= 6 && t <= 15) {
+    const spChance  = t >= 12 ? 0.78 : t >= 9 ? 0.52 : t >= 7 ? 0.32 : 0.18;
+    const spMinSize = t >= 12 ? 95  : t >= 9  ? 68   : t >= 7  ? 45   : 30;
+    const spRndSize = t >= 12 ? 55  : t >= 9  ? 40   : t >= 7  ? 30   : 20;
+    if (Math.random() < spChance) {
+      queue.push({
+        attacker: 'Sea Peoples',
+        attackerIcon: '🏴‍☠️',
+        baseSize: spMinSize + Math.floor(Math.random() * spRndSize),
+        type: t >= 8 ? 'invasion' : 'raid',
+        desc: t >= 12
+          ? 'A vast Sea Peoples migration fleet descends on Troy — entire nations on the move.'
+          : 'Sea Peoples raiders strike at the heart of the Aegean trade routes.',
+      });
+    }
   }
 
   // Refugee bandits (turns 12-15)
@@ -2505,6 +2608,119 @@ function processBattleQueue(queue, callback) {
 }
 
 // ─── BATTLE SYSTEM ────────────────────────────────────────────
+
+const PHASE_NAMES = ['Advance & Skirmish', 'Main Assault', 'Final Clash'];
+const PHASE_DESCS = [
+  'Archers and skirmishers exchange fire as the attackers advance.',
+  'The main force storms the walls and gate.',
+  'The battle reaches its climax — one side gives way.'
+];
+const LOSS_FRAC = { decisive_victory: 0.02, victory: 0.05, pyrrhic: 0.20, defeat: 0.40, sack: 0.60 };
+
+// ─── EXPEDITION (player attacks a city) ─────────────────────
+function launchExpedition(city) {
+  if (getTotalGarrison() === 0) {
+    G.addLog('You have no troops to send on expedition.', 'log-crisis');
+    drawMap(); return;
+  }
+  const result = simulateExpedition(city);
+  showBattleModal(result, () => {
+    applyExpeditionResult(result);
+    renderAll();
+  });
+}
+
+function simulateExpedition(city) {
+  const { region, label: cityLabel, id: cityId } = city;
+  const prof      = DIPLO_PROFILE[region];
+  const cityIcon  = REGIONS[region]?.icon ?? '🏰';
+  const effMil    = region === 'hatti' ? getHattiMilitary() : (prof?.military ?? 15);
+  // Cities defend with walls bonus (1.2×) and home-field randomness
+  const cityDefSize = Math.max(8, effMil + Math.floor(Math.random() * 18));
+  const cityDefBase = cityDefSize * 1.20;
+
+  const playerStr   = getGarrisonStrength();
+
+  let atkTotalRolls = 0, defTotalRolls = 0;
+  let atkTotalCas   = 0, defTotalCas   = 0;
+  const rounds = [];
+
+  for (let i = 0; i < 3; i++) {
+    const atkRoll = playerStr   * (0.55 + Math.random() * 0.90);
+    const defRoll = cityDefBase * (0.60 + Math.random() * 0.80);
+    const atkCas  = Math.floor(getTotalGarrison() * (0.04 + Math.random() * 0.09));
+    const defCas  = Math.floor(cityDefSize        * (0.03 + Math.random() * 0.07));
+    atkTotalRolls += atkRoll; defTotalRolls += defRoll;
+    atkTotalCas   += atkCas;  defTotalCas   += defCas;
+    rounds.push({ name: PHASE_NAMES[i], desc: PHASE_DESCS[i], atkRoll, defRoll, atkCas, defCas });
+  }
+
+  // ratio > 1 means Troy won
+  const ratio = atkTotalRolls / defTotalRolls;
+  let outcome;
+  if (ratio >= 1.5)       outcome = 'decisive_victory';
+  else if (ratio >= 1.0)  outcome = 'victory';
+  else if (ratio >= 0.80) outcome = 'pyrrhic';
+  else if (ratio >= 0.55) outcome = 'defeat';
+  else                    outcome = 'sack';  // Troy routed
+
+  // Attacker (Troy) takes more casualties than defenders in siege
+  const EXP_LOSS = { decisive_victory: 0.05, victory: 0.12, pyrrhic: 0.28, defeat: 0.45, sack: 0.65 };
+  const lf = EXP_LOSS[outcome];
+  const mLossExp = Math.min(G.militia,  Math.round(G.militia  * lf * 1.25));
+  const iLossExp = Math.min(G.infantry, Math.round(G.infantry * lf * 0.75));
+  const garrisonBefore = { militia: G.militia, infantry: G.infantry };
+  const garrisonAfter  = { militia: Math.max(0, G.militia - mLossExp), infantry: Math.max(0, G.infantry - iLossExp) };
+
+  return {
+    isExpedition: true,
+    cityId, cityLabel, cityIcon, region, cityDefSize,
+    config: {
+      attacker: cityLabel, attackerIcon: cityIcon,
+      desc: `Troy marches on ${cityLabel}.`, regionId: region
+    },
+    atkSize: getTotalGarrison(),
+    rounds, outcome, atkTotalCas, defTotalCas, atkTotalRolls, defTotalRolls,
+    garrisonBefore, garrisonAfter, mLossExp, iLossExp, expLossFrac: lf,
+  };
+}
+
+function applyExpeditionResult(result) {
+  const { outcome, cityLabel, region, mLossExp, iLossExp } = result;
+  const prof = DIPLO_PROFILE[region];
+  const d    = G.regionState[region]?.diplo;
+
+  // Apply player garrison losses (attacker takes heavy casualties)
+  applyGarrisonLoss(result.expLossFrac);
+
+  if (outcome === 'decisive_victory' || outcome === 'victory') {
+    const lootGold  = Math.floor(Math.random() * 8)  + 4;
+    const lootGrain = Math.floor(Math.random() * 5)  + 2;
+    G.res.gold  += lootGold;
+    G.res.grain += lootGrain;
+    G.addLog(`${cityLabel} raided! Seized ◎${lootGold}, 🌾${lootGrain}.`, 'log-good');
+    if (d) {
+      d.score = clampScore(d.score - 30);
+      if (prof?.canWar && d.score <= (prof.warThreshold ?? -40) && !d.atWar) {
+        d.atWar = true;
+        d.warAttackTurn = null;
+        G.addLog(`⚔ ${REGIONS[region].name} declares war after the raid!`, 'log-crisis');
+      }
+    }
+  } else if (outcome === 'pyrrhic') {
+    const lootGold = Math.floor(Math.random() * 4) + 1;
+    G.res.gold += lootGold;
+    G.addLog(`Pyrrhic raid on ${cityLabel}. Heavy losses. Seized ◎${lootGold}.`, 'log-event');
+    if (d) d.score = clampScore(d.score - 18);
+  } else if (outcome === 'defeat') {
+    G.addLog(`Expedition to ${cityLabel} repelled. Army retreats with losses.`, 'log-crisis');
+    if (d) d.score = clampScore(d.score - 8);
+  } else {
+    G.addLog(`Expedition to ${cityLabel} routed! Army in disorder.`, 'log-crisis');
+    if (d) d.score = clampScore(d.score - 4);
+  }
+}
+
 function simulateBattle(config) {
   const typeMultiplier = { siege: 1.25, invasion: 1.1, raid: 0.8 }[config.type] || 1.0;
   const atkSize = Math.round(config.baseSize * (0.8 + Math.random() * 0.4));
@@ -2514,13 +2730,6 @@ function simulateBattle(config) {
   const defBase       = (getGarrisonStrength() + allianceBonus) * (1 + G.walls * 0.28) * moraleMult + G.cavalryBonus * 5;
 
   const atkBase = atkSize * typeMultiplier;
-
-  const phaseNames = ['Advance & Skirmish', 'Main Assault', 'Final Clash'];
-  const phaseDescs = [
-    'Archers and skirmishers exchange fire as the attackers advance.',
-    'The main force storms the walls and gate.',
-    'The battle reaches its climax — one side gives way.'
-  ];
 
   let atkTotalRolls = 0, defTotalRolls = 0;
   let atkTotalCas = 0, defTotalCas = 0;
@@ -2535,7 +2744,7 @@ function simulateBattle(config) {
     defTotalRolls += defRoll;
     atkTotalCas   += atkCas;
     defTotalCas   += defCas;
-    rounds.push({ name: phaseNames[i], desc: phaseDescs[i], atkRoll, defRoll, atkCas, defCas });
+    rounds.push({ name: PHASE_NAMES[i], desc: PHASE_DESCS[i], atkRoll, defRoll, atkCas, defCas });
   }
 
   const ratio = defTotalRolls / atkTotalRolls;
@@ -2547,7 +2756,6 @@ function simulateBattle(config) {
   else                    outcome = 'sack';
 
   // Pre-compute expected garrison losses (mirrors applyGarrisonLoss exactly)
-  const LOSS_FRAC = { decisive_victory: 0.02, victory: 0.05, pyrrhic: 0.20, defeat: 0.40, sack: 0.60 };
   const lf = LOSS_FRAC[outcome];
   const mLossExp = Math.min(G.militia,  Math.round(G.militia  * lf * 1.25));
   const iLossExp = Math.min(G.infantry, Math.round(G.infantry * lf * 0.75));
@@ -2603,26 +2811,42 @@ function applyBattleResult(result) {
 
 function showBattleModal(result, onDone) {
   const { config, atkSize, rounds, outcome, atkTotalCas, defTotalCas, atkTotalRolls, defTotalRolls,
-          garrisonBefore, garrisonAfter, mLossExp, iLossExp } = result;
+          garrisonBefore, garrisonAfter, mLossExp, iLossExp, isExpedition } = result;
   const year = 1250 - (G.turn - 1) * 7;
 
-  document.getElementById('bmod-year').textContent    = `${year} BCE`;
-  document.getElementById('bmod-title').textContent   = `Battle of Troy — ${config.attacker}`;
+  document.getElementById('bmod-year').textContent     = `${year} BCE`;
   document.getElementById('bmod-subtitle').textContent = config.desc;
-  document.getElementById('bmod-atk-icon').textContent = config.attackerIcon;
-  document.getElementById('bmod-atk-name').textContent = config.attacker;
-  document.getElementById('bmod-atk-size').textContent = `Army: ${atkSize}`;
-  document.getElementById('bmod-atk-power').textContent = `Power: ${Math.round(atkTotalRolls)}`;
-  document.getElementById('bmod-def-size').textContent  = `Militia: ${garrisonBefore.militia}  Infantry: ${garrisonBefore.infantry}  (str: ${getGarrisonStrength()})`;
-  document.getElementById('bmod-def-power').textContent = `Power: ${Math.round(defTotalRolls)}`;
-  document.getElementById('bmod-def-walls').textContent = `🏰 Walls ×${(1 + G.walls * 0.28).toFixed(2)}`;
+
+  if (isExpedition) {
+    // Left card = Troy army (attacker); Right card = city (defender)
+    document.getElementById('bmod-title').textContent    = `Troy Expedition — ${result.cityLabel}`;
+    document.getElementById('bmod-atk-icon').textContent = '♟';
+    document.getElementById('bmod-atk-name').textContent = 'TROY ARMY';
+    document.getElementById('bmod-atk-size').textContent = `Militia: ${garrisonBefore.militia}  Infantry: ${garrisonBefore.infantry}`;
+    document.getElementById('bmod-atk-power').textContent = `Str: ${Math.round(atkTotalRolls)}`;
+    document.getElementById('bmod-def-size').textContent  = `${result.cityIcon} ${result.cityLabel}`;
+    document.getElementById('bmod-def-power').textContent = `Garrison: ~${result.cityDefSize}`;
+    document.getElementById('bmod-def-walls').textContent = `🏰 Fortified city ×1.20`;
+  } else {
+    // Normal defence: Left card = enemy; Right card = Troy
+    document.getElementById('bmod-title').textContent    = `Battle of Troy — ${config.attacker}`;
+    document.getElementById('bmod-atk-icon').textContent = config.attackerIcon;
+    document.getElementById('bmod-atk-name').textContent = config.attacker;
+    document.getElementById('bmod-atk-size').textContent = `Army: ${atkSize}`;
+    document.getElementById('bmod-atk-power').textContent = `Power: ${Math.round(atkTotalRolls)}`;
+    document.getElementById('bmod-def-size').textContent  = `Militia: ${garrisonBefore.militia}  Infantry: ${garrisonBefore.infantry}  (str: ${getGarrisonStrength()})`;
+    document.getElementById('bmod-def-power').textContent = `Power: ${Math.round(defTotalRolls)}`;
+    document.getElementById('bmod-def-walls').textContent = `🏰 Walls ×${(1 + G.walls * 0.28).toFixed(2)}`;
+  }
 
   const maxPow = Math.max(atkTotalRolls, defTotalRolls);
   document.getElementById('bmod-bar-atk').style.width = `${Math.round(atkTotalRolls / maxPow * 100)}%`;
   document.getElementById('bmod-bar-def').style.width = `${Math.round(defTotalRolls / maxPow * 100)}%`;
 
   document.getElementById('bmod-phases').innerHTML = rounds.map((rnd, i) => {
-    const winner = rnd.defRoll >= rnd.atkRoll ? '🛡 Defenders hold' : '⚔ Attackers press';
+    // "winner" label: in expedition Troy is atk side, in defence Troy is def side
+    const troyWon = isExpedition ? rnd.atkRoll >= rnd.defRoll : rnd.defRoll >= rnd.atkRoll;
+    const winner = troyWon ? '🛡 Troy holds' : '⚔ Enemy presses';
     return `<div class="battle-phase">
       <div class="phase-name">Phase ${i+1}: ${rnd.name}</div>
       <div class="phase-desc">${rnd.desc}</div>
@@ -2634,27 +2858,47 @@ function showBattleModal(result, onDone) {
     </div>`;
   }).join('');
 
-  const outcomeInfo = {
-    decisive_victory: { icon: '🏆', title: 'DECISIVE VICTORY', cls: 'result-victory' },
-    victory:          { icon: '✓',  title: 'VICTORY',          cls: 'result-victory' },
-    pyrrhic:          { icon: '⚔',  title: 'PYRRHIC VICTORY',  cls: 'result-pyrrhic' },
-    defeat:           { icon: '💀', title: 'DEFEAT',            cls: 'result-defeat' },
-    sack:             { icon: '🔥', title: 'CITY SACKED',       cls: 'result-defeat' },
-  }[outcome];
+  const outcomeLabels = isExpedition
+    ? {
+        decisive_victory: { icon: '🏆', title: 'CITY SACKED',       cls: 'result-victory' },
+        victory:          { icon: '✓',  title: 'RAID SUCCESSFUL',    cls: 'result-victory' },
+        pyrrhic:          { icon: '⚔',  title: 'PYRRHIC RAID',       cls: 'result-pyrrhic' },
+        defeat:           { icon: '💀', title: 'REPELLED',           cls: 'result-defeat'  },
+        sack:             { icon: '🔥', title: 'ROUTED',             cls: 'result-defeat'  },
+      }
+    : {
+        decisive_victory: { icon: '🏆', title: 'DECISIVE VICTORY',   cls: 'result-victory' },
+        victory:          { icon: '✓',  title: 'VICTORY',            cls: 'result-victory' },
+        pyrrhic:          { icon: '⚔',  title: 'PYRRHIC VICTORY',    cls: 'result-pyrrhic' },
+        defeat:           { icon: '💀', title: 'DEFEAT',             cls: 'result-defeat'  },
+        sack:             { icon: '🔥', title: 'CITY SACKED',        cls: 'result-defeat'  },
+      };
 
+  const outcomeInfo = outcomeLabels[outcome];
   document.getElementById('bmod-result-icon').textContent  = outcomeInfo.icon;
   const titleEl = document.getElementById('bmod-result-title');
   titleEl.textContent = outcomeInfo.title;
   titleEl.className   = outcomeInfo.cls;
 
-  document.getElementById('bmod-atk-cas').textContent = `${config.attacker} casualties: ${atkTotalCas}`;
   const totalLoss = mLossExp + iLossExp;
-  document.getElementById('bmod-def-cas').innerHTML =
-    totalLoss > 0
-      ? `Troy garrison: ${garrisonBefore.militia}+${garrisonBefore.infantry} → ` +
-        `<span class="bmod-loss-after">${garrisonAfter.militia}+${garrisonAfter.infantry}</span>` +
-        ` &nbsp;(−${mLossExp} militia, −${iLossExp} infantry)`
-      : `Troy garrison: ${garrisonBefore.militia}+${garrisonBefore.infantry} — no significant losses`;
+  if (isExpedition) {
+    // Swap: left shows city losses, right shows Troy's army losses
+    document.getElementById('bmod-atk-cas').textContent = `${result.cityLabel} casualties: ${defTotalCas}`;
+    document.getElementById('bmod-def-cas').innerHTML =
+      totalLoss > 0
+        ? `Troy army: ${garrisonBefore.militia}+${garrisonBefore.infantry} → ` +
+          `<span class="bmod-loss-after">${garrisonAfter.militia}+${garrisonAfter.infantry}</span>` +
+          ` &nbsp;(−${mLossExp} militia, −${iLossExp} infantry)`
+        : `Troy army: ${garrisonBefore.militia}+${garrisonBefore.infantry} — no significant losses`;
+  } else {
+    document.getElementById('bmod-atk-cas').textContent = `${config.attacker} casualties: ${atkTotalCas}`;
+    document.getElementById('bmod-def-cas').innerHTML =
+      totalLoss > 0
+        ? `Troy garrison: ${garrisonBefore.militia}+${garrisonBefore.infantry} → ` +
+          `<span class="bmod-loss-after">${garrisonAfter.militia}+${garrisonAfter.infantry}</span>` +
+          ` &nbsp;(−${mLossExp} militia, −${iLossExp} infantry)`
+        : `Troy garrison: ${garrisonBefore.militia}+${garrisonBefore.infantry} — no significant losses`;
+  }
 
   const modal = document.getElementById('battle-modal');
   modal.style.display = 'flex';
