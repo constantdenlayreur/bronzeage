@@ -2,7 +2,7 @@
 
 // ============================================================
 //  WILUSA: Twilight of the Bronze Age
-//  Troy survival strategy — 1250–1150 BCE
+//  Troy survival strategy — 1250–1150 BC
 //  Player manages Troy (Wilusa) through the Bronze Age Collapse
 // ============================================================
 
@@ -688,7 +688,7 @@ function resolveSiege(attackStrength) {
 }
 
 // ─── DROUGHT ─────────────────────────────────────────────────
-// Historical: the 3.2kya megadrought struck hardest 1200-1150 BCE (turns 7-15)
+// Historical: the 3.2kya megadrought struck hardest 1200-1150 BC (turns 7-15)
 function updateDrought() {
   const t = G.turn;
   const worsen  = t >= 7 ? 0.30 : 0.12;
@@ -1620,7 +1620,7 @@ function updateDiplomacyPerTurn() {
 }
 
 // ── Hatti military power decays with the Late Bronze Age collapse ─────
-// Turn 1 (1250 BCE): ~95 — peak empire; Turn 11 (1180 BCE): ~30 — barely intact
+// Turn 1 (1250 BC): ~95 — peak empire; Turn 11 (1180 BC): ~30 — barely intact
 function getHattiMilitary() {
   const base = 95 - (G.turn - 1) * 6;  // 95 → 35 over turns 1-11
   return Math.max(30, Math.round(base));
@@ -1948,7 +1948,7 @@ function renderTopBar() {
   setRate('rr-gold',   prod.gold - garrisonGoldCost());
 
   const year = 1250 - (G.turn - 1) * 7;
-  document.getElementById('year-label').textContent  = `${year} BCE`;
+  document.getElementById('year-label').textContent  = `${year} BC`;
   document.getElementById('turn-label').textContent  = `Year ${G.turn} of ${G.maxTurns}`;
   document.getElementById('vassal-status').textContent =
     G.vassalOfHatti ? `Vassal of Hatti · ${G.tributeDoubleThisTurn?6:3}⚙ tribute/yr` : 'Free City';
@@ -2232,7 +2232,7 @@ function renderActions() {
     },
     ...(G.ironWorking ? [] : [{
       id: 'iron',
-      label: G.turn >= 7 ? `⚒ Research Iron Working` : `⚒ Research Iron Working  (available ~1208 BCE)`,
+      label: G.turn >= 7 ? `⚒ Research Iron Working` : `⚒ Research Iron Working  (available ~1208 BC)`,
       cost: `◎18 🔩2`,
       enabled: G.turn >= 7 && r.gold >= 18 && r.tin >= 2,
       fn: () => {
@@ -3249,7 +3249,7 @@ function showBattleModal(result, onDone) {
           garrisonBefore, garrisonAfter, mLossExp, iLossExp, isExpedition } = result;
   const year = 1250 - (G.turn - 1) * 7;
 
-  document.getElementById('bmod-year').textContent     = `${year} BCE`;
+  document.getElementById('bmod-year').textContent     = `${year} BC`;
   document.getElementById('bmod-subtitle').textContent = config.desc;
 
   if (isExpedition) {
@@ -3368,7 +3368,7 @@ function endGame(victory, text, score) {
   document.getElementById('gameover-title').className    = victory ? 'title-victory' : 'title-defeat';
   document.getElementById('gameover-text').textContent   = text;
   document.getElementById('gameover-score').textContent  = score
-    ? `Final Score: ${score} · Year Reached: ${1250 - (Math.min(G.turn, G.maxTurns)-1)*7} BCE`
+    ? `Final Score: ${score} · Year Reached: ${1250 - (Math.min(G.turn, G.maxTurns)-1)*7} BC`
     : '';
   screen.style.display = 'flex';
 }
