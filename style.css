@@ -1039,6 +1039,137 @@ html, body {
 }
 
 /* ═══════════════════════════════════════════════
+   TRIBUTE MODAL
+   ═══════════════════════════════════════════════ */
+
+#tribute-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 210;
+  align-items: center;
+  justify-content: center;
+}
+
+#tribute-inner {
+  background: #0d0a04;
+  border: 1px solid #5a3800;
+  width: 400px;
+  max-width: 94vw;
+  box-shadow: 0 0 40px rgba(0,0,0,0.85), inset 0 1px 0 rgba(212,160,23,0.08);
+}
+
+#tribute-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid #2a1800;
+  font-size: 1.5em;
+  background: rgba(212,160,23,0.04);
+}
+
+#tribute-title {
+  font-size: 0.55em;
+  letter-spacing: 3px;
+  color: #d4a017;
+  font-weight: bold;
+}
+#tribute-subtitle {
+  font-size: 0.42em;
+  color: #4a3818;
+  letter-spacing: 1px;
+}
+
+#tribute-body {
+  padding: 16px 18px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.trib-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8em;
+  color: #8a7030;
+}
+.trib-value { font-weight: bold; color: #c8980e; }
+
+.trib-warn {
+  background: rgba(200,100,30,0.12);
+  border: 1px solid rgba(200,100,30,0.30);
+  border-radius: 3px;
+  padding: 6px 10px;
+  font-size: 0.74em;
+  color: #c07030;
+  letter-spacing: 0.5px;
+}
+
+.trib-consequences {
+  margin-top: 8px;
+  border-top: 1px solid #1a1000;
+  padding-top: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.trib-con-row {
+  font-size: 0.72em;
+  letter-spacing: 0.3px;
+  padding: 3px 0;
+}
+.trib-con-row.good { color: #508040; }
+.trib-con-row.bad  { color: #a05030; }
+
+.trib-consequence      { font-size: 0.88em; opacity: 0.85; }
+.trib-consequence.good { color: #508040; }
+.trib-consequence.bad  { color: #a05030; }
+
+#tribute-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid #1a1000;
+}
+
+.trib-btn {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8em;
+  letter-spacing: 1px;
+  transition: all 0.15s;
+}
+
+.trib-btn-pay {
+  background: rgba(40,80,40,0.15);
+  border: 1px solid #305828;
+  color: #60a050;
+}
+.trib-btn-pay:hover:not(:disabled) {
+  background: rgba(40,80,40,0.28);
+  border-color: #508040;
+  color: #80c068;
+}
+.trib-btn-pay:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.trib-btn-refuse {
+  background: rgba(100,30,20,0.15);
+  border: 1px solid #5a2018;
+  color: #a04030;
+}
+.trib-btn-refuse:hover {
+  background: rgba(100,30,20,0.28);
+  border-color: #903828;
+  color: #c05038;
+}
+
+/* ═══════════════════════════════════════════════
    DIPLOMACY MODAL
    ═══════════════════════════════════════════════ */
 

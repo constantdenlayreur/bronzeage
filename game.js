@@ -443,6 +443,7 @@ const G = {
   infantry:  5,  // professional soldiers — needs bronze, fights at 1.6× strength
   vassalOfHatti: true,
   tributeDoubleThisTurn: false,
+  tributeRefusedThisTurn: false,
   cavalryBonus: 0,  // elite bonus from trained cavalry (max 3)
 
   // Local production upgrades (permanent investments)
@@ -586,17 +587,22 @@ function getPrice(resource, regionId, buying = false) {
 function payTribute() {
   if (!G.vassalOfHatti) return;
   const due = G.tributeDoubleThisTurn ? 6 : 3;
-  if (G.res.bronze >= due) {
+  const hd  = G.regionState.hatti?.diplo;
+
+  if (G.tributeRefusedThisTurn) {
+    G.addLog(`Tribute to Hatti refused. The Great King will not forget this insult.`, 'log-crisis');
+    if (hd) hd.score = clampScore(hd.score - 15);
+  } else if (G.res.bronze >= due) {
     G.res.bronze -= due;
-    G.addLog(`Paid ${due} Bronze tribute to Hatti.`, 'log-tribute');
-    const hd = G.regionState.hatti?.diplo;
+    G.addLog(`Paid ${due} ⚙ tribute to Hatti.`, 'log-tribute');
     if (hd && !hd.atWar) hd.score = clampScore(hd.score + 4);
   } else {
-    G.addLog(`⚠ Failed to pay tribute to Hatti! They grow angry.`, 'log-crisis');
-    const hd = G.regionState.hatti?.diplo;
+    G.addLog(`⚠ Could not pay tribute to Hatti — not enough bronze. They grow angry.`, 'log-crisis');
     if (hd) hd.score = clampScore(hd.score - 10);
   }
-  G.tributeDoubleThisTurn = false;
+
+  G.tributeDoubleThisTurn  = false;
+  G.tributeRefusedThisTurn = false;
 }
 
 // ─── FEED POPULATION ─────────────────────────────────────────
@@ -2309,8 +2315,51 @@ document.getElementById('diplo-close').addEventListener('click', () => {
   document.getElementById('diplo-modal').style.display = 'none';
 });
 
+// ─── TRIBUTE MODAL ────────────────────────────────────────────
+function showTributeModal(callback) {
+  const hattiRs = G.regionState.hatti;
+  const hd      = hattiRs?.diplo;
+
+  // Skip modal: not a vassal, Hatti destroyed, or already at war with Hatti
+  if (!G.vassalOfHatti || hattiRs?.destroyed || hd?.atWar) {
+    return callback();
+  }
+
+  const due     = G.tributeDoubleThisTurn ? 6 : 3;
+  const canPay  = G.res.bronze >= due;
+  const score   = hd?.score ?? 0;
+  const color   = getDiploColor(score, false);
+  const label   = hd ? getDiploLabel(score, false) : '~ Unknown';
+  const doubleWarn = G.tributeDoubleThisTurn
+    ? `<div class="trib-warn">⚠ Double tribute demanded this year!</div>` : '';
+
+  document.getElementById('trib-due-amount').textContent  = due;
+  document.getElementById('trib-hatti-status').innerHTML  =
+    `Hatti relations: <span style="color:${color}">${label} (${score > 0 ? '+' : ''}${score})</span>`;
+  document.getElementById('trib-double-warn').innerHTML   = doubleWarn;
+  document.getElementById('trib-bronze-have').textContent =
+    `You have: ⚙ ${G.res.bronze} bronze`;
+
+  const payBtn = document.getElementById('trib-pay-btn');
+  payBtn.disabled = !canPay;
+  payBtn.innerHTML = canPay
+    ? `Pay ⚙${due} &nbsp;<span class="trib-consequence good">Relations +4</span>`
+    : `Pay ⚙${due} &nbsp;<span class="trib-consequence bad">Not enough bronze</span>`;
+
+  document.getElementById('tribute-modal').style.display = 'flex';
+
+  const finish = (refused) => {
+    document.getElementById('tribute-modal').style.display = 'none';
+    G.tributeRefusedThisTurn = refused;
+    callback();
+  };
+
+  document.getElementById('trib-pay-btn').onclick    = () => canPay && finish(false);
+  document.getElementById('trib-refuse-btn').onclick = () => finish(true);
+}
+
 document.getElementById('next-turn-btn').addEventListener('click', () => {
-  advanceTurn();
+  showTributeModal(advanceTurn);
 });
 
 function advanceTurn() {
