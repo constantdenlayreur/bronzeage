@@ -1025,3 +1025,261 @@ html, body {
   display: block;
   margin-top: 2px;
 }
+
+/* ═══════════════════════════════════════════════
+   DIPLOMACY MODAL
+   ═══════════════════════════════════════════════ */
+
+#diplo-btn {
+  background: transparent;
+  border: 1px solid #4a3818;
+  color: #7a6228;
+  font-size: 0.72em;
+  padding: 5px 11px;
+  cursor: pointer;
+  border-radius: 3px;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  margin-right: 6px;
+  font-family: inherit;
+}
+#diplo-btn:hover {
+  border-color: #d4a017;
+  color: #d4a017;
+  background: rgba(212,160,23,0.07);
+}
+
+#diplo-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.78);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+
+#diplo-inner {
+  background: #0d0a04;
+  border: 1px solid #3a2800;
+  width: 820px;
+  max-width: 96vw;
+  height: 78vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 0 50px rgba(0,0,0,0.85);
+}
+
+#diplo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 18px;
+  border-bottom: 1px solid #2a1800;
+  background: rgba(212,160,23,0.04);
+  flex-shrink: 0;
+  gap: 14px;
+}
+
+#diplo-title {
+  font-size: 0.85em;
+  letter-spacing: 3px;
+  color: #d4a017;
+  font-weight: bold;
+}
+#diplo-subtitle {
+  font-size: 0.62em;
+  color: #4a3818;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+#diplo-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 0.62em;
+  letter-spacing: 0.5px;
+  flex-wrap: wrap;
+}
+.dleg { opacity: 0.85; }
+
+#diplo-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Left list */
+#diplo-list {
+  width: 256px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-right: 1px solid #1a1000;
+}
+
+.diplo-row {
+  display: flex;
+  align-items: center;
+  padding: 9px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #110e03;
+  gap: 9px;
+  transition: background 0.15s;
+  border-left: 2px solid transparent;
+}
+.diplo-row:hover        { background: rgba(212,160,23,0.06); }
+.diplo-row.selected     { background: rgba(212,160,23,0.10); border-left-color: #d4a017; }
+.diplo-row.diplo-at-war { background: rgba(200,40,30,0.07); }
+.diplo-row.diplo-at-war:hover { background: rgba(200,40,30,0.12); }
+
+.drow-icon  { font-size: 1.1em; flex-shrink: 0; }
+.drow-body  { flex: 1; min-width: 0; }
+.drow-name  { font-size: 0.73em; color: #9a8440; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drow-badges { font-size: 0.8em; display: inline; }
+
+.drow-bar-bg {
+  height: 4px;
+  background: #1a1200;
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+.drow-bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s; }
+
+.drow-status {
+  font-size: 0.62em;
+  white-space: nowrap;
+  font-weight: bold;
+  letter-spacing: 0.3px;
+  text-align: right;
+  margin-top: 2px;
+}
+
+/* Right detail */
+#diplo-detail { flex: 1; overflow-y: auto; }
+
+.diplo-detail-card { padding: 18px 22px; }
+
+.dd-name {
+  font-size: 1.05em;
+  color: #d4a017;
+  letter-spacing: 1.5px;
+  margin-bottom: 5px;
+}
+.dd-status {
+  font-size: 0.78em;
+  font-weight: bold;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.dd-score-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.73em;
+  color: #6a5020;
+  margin-bottom: 8px;
+}
+.dd-badge {
+  background: rgba(212,160,23,0.08);
+  border: 1px solid #3a2800;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.9em;
+  color: #908030;
+}
+.dd-bar-bg {
+  height: 7px;
+  background: #1a1200;
+  border-radius: 4px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.dd-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
+
+.dd-desc {
+  font-size: 0.76em;
+  color: #5a4820;
+  line-height: 1.55;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #1a1000;
+}
+.dd-war-box {
+  background: rgba(200,40,30,0.10);
+  border: 1px solid rgba(200,40,30,0.30);
+  border-radius: 3px;
+  padding: 9px 13px;
+  font-size: 0.73em;
+  color: #c05040;
+  margin-bottom: 10px;
+  letter-spacing: 0.4px;
+  line-height: 1.5;
+}
+.dd-benefit-box {
+  background: rgba(50,120,50,0.08);
+  border: 1px solid rgba(50,120,50,0.22);
+  border-radius: 3px;
+  padding: 7px 13px;
+  font-size: 0.73em;
+  color: #508040;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.dd-demand-box {
+  background: rgba(200,130,30,0.09);
+  border: 1px solid rgba(200,130,30,0.28);
+  border-radius: 3px;
+  padding: 8px 13px;
+  font-size: 0.73em;
+  color: #b08030;
+  margin-bottom: 10px;
+}
+
+.dd-section-label {
+  font-size: 0.62em;
+  color: #4a3818;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin: 14px 0 5px;
+}
+
+.dd-actions { display: flex; flex-direction: column; gap: 5px; }
+
+.dd-action-btn {
+  background: rgba(25,18,4,0.9);
+  border: 1px solid #2e2008;
+  color: #7a6228;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 0.76em;
+  font-family: inherit;
+  text-align: left;
+  border-radius: 3px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.15s;
+  letter-spacing: 0.5px;
+}
+.dd-action-btn:hover:not(:disabled) {
+  background: rgba(212,160,23,0.08);
+  border-color: #7a5818;
+  color: #c8980e;
+}
+.dd-action-btn:disabled { opacity: 0.30; cursor: not-allowed; }
+
+.dd-action-btn.btn-alliance:hover:not(:disabled) {
+  background: rgba(40,100,40,0.10);
+  border-color: #408038;
+  color: #60b050;
+}
+.dd-action-btn.btn-peace:hover:not(:disabled) {
+  background: rgba(40,80,150,0.10);
+  border-color: #304880;
+  color: #5080c0;
+}
+
+/* Map overlay visual for at-war regions (used via JS shadow) */
+.map-war-glow   { /* handled in canvas shadow */ }
+.map-ally-glow  { /* handled in canvas shadow */ }

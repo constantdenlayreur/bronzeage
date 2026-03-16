@@ -73,6 +73,7 @@
       <div id="year-label">1250 BCE</div>
       <div id="turn-label">Year 1 of 15</div>
     </div>
+    <button id="diplo-btn">🤝 Diplomacy</button>
     <button id="next-turn-btn">End Year ▶</button>
   </div>
 
@@ -140,6 +141,30 @@
     </div>
   </div>
 
+</div>
+
+<!-- ===== DIPLOMACY MODAL ===== -->
+<div id="diplo-modal">
+  <div id="diplo-inner">
+    <div id="diplo-header">
+      <div id="diplo-header-left">
+        <div id="diplo-title">🤝 DIPLOMACY</div>
+        <div id="diplo-subtitle">Manage Troy's relations with the Bronze Age world</div>
+      </div>
+      <div id="diplo-legend">
+        <span class="dleg" style="color:#30a060">■ Allied</span>
+        <span class="dleg" style="color:#60a048">■ Friendly</span>
+        <span class="dleg" style="color:#888060">■ Neutral</span>
+        <span class="dleg" style="color:#c07030">■ Hostile</span>
+        <span class="dleg" style="color:#c03030">■ At War</span>
+      </div>
+      <button class="close-btn" id="diplo-close">✕</button>
+    </div>
+    <div id="diplo-body">
+      <div id="diplo-list"><!-- filled by JS --></div>
+      <div id="diplo-detail"><p class="hint" style="padding:20px 16px">Select a nation to view diplomatic options.</p></div>
+    </div>
+  </div>
 </div>
 
 <!-- ===== TRADE MODAL ===== -->

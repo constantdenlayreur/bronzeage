@@ -215,6 +215,28 @@ const REGIONS = {
   },
 };
 
+// ─── DIPLOMACY PROFILES ──────────────────────────────────────
+// Per-region AI behaviour: score drift, military strength, war threshold
+// initScore: starting relation (-100 to +100)
+// driftPerTurn: score change each turn (negative = naturally declining)
+// military: army strength used when declaring war
+// warThreshold: score at which they declare war (null = never)
+// interests: resources they most value as gifts (+50% effectiveness)
+const DIPLO_PROFILE = {
+  mycenae: { initScore:  28, driftPerTurn: -2, military: 45, warThreshold: -35, canWar: true,  interests: ['bronze','silver'] },
+  crete:   { initScore:  62, driftPerTurn: -1, military:  0, warThreshold: null, canWar: false, interests: ['grain','pottery'] },
+  arzawa:  { initScore:  48, driftPerTurn: -1, military: 18, warThreshold: -55, canWar: false,  interests: ['bronze','gold']   },
+  hatti:   { initScore:  42, driftPerTurn: -2, military: 65, warThreshold: -22, canWar: true,   interests: ['bronze']          },
+  cyprus:  { initScore:  65, driftPerTurn: -1, military:  0, warThreshold: null, canWar: false, interests: ['grain','silver']  },
+  ugarit:  { initScore:  52, driftPerTurn: -1, military:  0, warThreshold: null, canWar: false, interests: ['bronze','copper'] },
+  canaan:  { initScore:  42, driftPerTurn: -1, military: 12, warThreshold: -60, canWar: false,  interests: ['bronze','copper'] },
+  egypt:   { initScore:  62, driftPerTurn: -1, military: 38, warThreshold: -32, canWar: true,   interests: ['copper','silver'] },
+  assyria: { initScore:  36, driftPerTurn: -1, military: 28, warThreshold: -45, canWar: true,   interests: ['bronze','grain']  },
+  babylon: { initScore:  32, driftPerTurn: -1, military: 18, warThreshold: -55, canWar: false,  interests: ['bronze','grain']  },
+  elam:    { initScore:  22, driftPerTurn: -1, military: 12, warThreshold: -65, canWar: false,  interests: ['bronze','silver'] },
+  // kashka: always hostile, handled by random raid system — no diplo profile
+};
+
 // ─── BASE MARKET PRICES (gold per unit) ─────────────────────
 const BASE_PRICES = {
   grain:     2,
@@ -433,6 +455,7 @@ const G = {
 
   // Trade this turn
   tradeDoneThisTurn: false,
+  lastTradedRegionId: null,
 
   // Log
   log: [],
@@ -446,12 +469,22 @@ const G = {
 
 // Init region state
 Object.keys(REGIONS).forEach(id => {
-  const r = REGIONS[id];
+  const r    = REGIONS[id];
+  const prof = DIPLO_PROFILE[id];
   G.regionState[id] = {
     destroyed: false,
-    relation: r.relation,
-    exportMods: {},   // resource qty mods
-    priceMods: {},    // resource price mods
+    relation:  r.relation,
+    exportMods: {},
+    priceMods:  {},
+    diplo: prof ? {
+      score:           prof.initScore,
+      atWar:           prof.initScore <= (prof.warThreshold ?? -999),
+      alliance:        false,
+      tradeDeal:       false,
+      warDeclaredTurn: null,
+      warAttackTurn:   null,  // last turn they attacked in war
+      pendingDemand:   null,  // { resource, qty, deadline }
+    } : null,
   };
 });
 
@@ -491,12 +524,13 @@ function craftBronze(qty) {
 }
 
 // ─── GET EFFECTIVE PRICE ─────────────────────────────────────
-function getPrice(resource, regionId) {
+function getPrice(resource, regionId, buying = false) {
   let p = BASE_PRICES[resource] || 1;
   p *= G.priceMult[resource] || 1;
   if (regionId) {
     const rs = G.regionState[regionId];
     if (rs && rs.priceMods[resource]) p *= rs.priceMods[resource];
+    if (buying && rs?.diplo?.tradeDeal) p *= 0.85; // 15% trade deal discount
   }
   return Math.max(1, Math.round(p * 10) / 10);
 }
@@ -508,10 +542,12 @@ function payTribute() {
   if (G.res.bronze >= due) {
     G.res.bronze -= due;
     G.addLog(`Paid ${due} Bronze tribute to Hatti.`, 'log-tribute');
+    const hd = G.regionState.hatti?.diplo;
+    if (hd && !hd.atWar) hd.score = clampScore(hd.score + 4);
   } else {
-    // Can't pay — Hatti is displeased
     G.addLog(`⚠ Failed to pay tribute to Hatti! They grow angry.`, 'log-crisis');
-    // Add threat later
+    const hd = G.regionState.hatti?.diplo;
+    if (hd) hd.score = clampScore(hd.score - 10);
   }
   G.tributeDoubleThisTurn = false;
 }
@@ -1017,6 +1053,41 @@ function drawRegion(id, region) {
   ctx.stroke();
   ctx.setLineDash([]);
 
+  // Diplomatic glow overlay
+  if (!destroyed && !isPlayer) {
+    const d = rs?.diplo;
+    if (d?.atWar) {
+      // Red war glow — rebuild path
+      ctx.beginPath();
+      region.poly.forEach(([rx, ry], i) => {
+        const [px, py] = sp(rx, ry);
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      });
+      ctx.closePath();
+      ctx.save();
+      ctx.shadowColor = 'rgba(220,50,30,0.70)';
+      ctx.shadowBlur  = 12 * s;
+      ctx.strokeStyle = 'rgba(220,50,30,0.45)';
+      ctx.lineWidth   = 2.5 * s;
+      ctx.stroke();
+      ctx.restore();
+    } else if (d?.alliance) {
+      ctx.beginPath();
+      region.poly.forEach(([rx, ry], i) => {
+        const [px, py] = sp(rx, ry);
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      });
+      ctx.closePath();
+      ctx.save();
+      ctx.shadowColor = 'rgba(50,200,100,0.60)';
+      ctx.shadowBlur  = 10 * s;
+      ctx.strokeStyle = 'rgba(50,200,100,0.35)';
+      ctx.lineWidth   = 2 * s;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   // Region label
   if (!isPlayer) {
     const [cx, cy] = sp(region.cx, region.cy);
@@ -1090,7 +1161,10 @@ canvas.addEventListener('mousemove', e => {
   if (id && id !== 'troy') {
     const r  = REGIONS[id];
     const rs = G.regionState[id];
-    const status = rs.destroyed ? '💀 Destroyed' : getRelationLabel(rs.relation);
+    const d = rs.diplo;
+    const status = rs.destroyed ? '💀 Destroyed'
+                 : d ? `<span style="color:${getDiploColor(d.score,d.atWar)}">${getDiploLabel(d.score,d.atWar)}</span> (${d.score>0?'+':''}${d.score})`
+                 : getRelationLabel(rs.relation);
     let html = `<b style="color:${r.borderColor}">${r.icon} ${r.name}</b><br>${status}`;
     if (!rs.destroyed && !r.noTrade) {
       const exports = Object.entries(r.exports || {})
@@ -1121,6 +1195,379 @@ canvas.addEventListener('click', e => {
   drawMap();
   renderRegionInfo(id);
 });
+
+// ═══════════════════════════════════════════════════════════════
+//  DIPLOMACY SYSTEM
+// ═══════════════════════════════════════════════════════════════
+
+function clampScore(s) { return Math.max(-100, Math.min(100, Math.round(s))); }
+
+function getDiploLabel(score, atWar) {
+  if (atWar)       return '⚔ AT WAR';
+  if (score >= 70) return '🤝 Allied';
+  if (score >= 50) return '✓ Friendly';
+  if (score >= 20) return '~ Neutral';
+  if (score >= -15) return '~ Cool';
+  if (score >= -40) return '⚠ Hostile';
+  return '☠ Enemy';
+}
+
+function getDiploColor(score, atWar) {
+  if (atWar)        return '#c03030';
+  if (score >= 70)  return '#30a060';
+  if (score >= 50)  return '#60a048';
+  if (score >= 20)  return '#888060';
+  if (score >= -15) return '#a08040';
+  if (score >= -40) return '#c07030';
+  return '#c03030';
+}
+
+function getAllianceBonus() {
+  return Object.entries(G.regionState).reduce((sum, [id, rs]) => {
+    if (rs.diplo?.alliance && !rs.destroyed) sum += 10;
+    return sum;
+  }, 0);
+}
+
+// ── Per-turn AI diplomacy updates ────────────────────────────
+function updateDiplomacyPerTurn() {
+  Object.entries(DIPLO_PROFILE).forEach(([id, prof]) => {
+    const rs = G.regionState[id];
+    if (!rs || rs.destroyed || !rs.diplo) return;
+    const d = rs.diplo;
+
+    if (d.atWar) return; // score frozen during active war
+
+    // Natural drift
+    d.score = clampScore(d.score + prof.driftPerTurn);
+
+    // Trade bonus: player traded with this region last turn
+    if (G.lastTradedRegionId === id) {
+      d.score = clampScore(d.score + 5);
+    }
+
+    // Hatti: tribute bonus / penalty applied in payTribute()
+
+    // Random demand: hostile regions occasionally send demands
+    if (!d.pendingDemand && d.score < 10 && d.score > (prof.warThreshold ?? -999) + 15 && Math.random() < 0.12) {
+      const resource = prof.interests[0] || 'bronze';
+      const qty = id === 'hatti' ? 3 : 2;
+      d.pendingDemand = { resource, qty, deadline: G.turn + 2 };
+      G.addLog(`${REGIONS[id].name} demands ${qty} ${resource}. Fulfill or relations suffer.`, 'log-event');
+    }
+
+    // Process pending demand expiry
+    if (d.pendingDemand && G.turn > d.pendingDemand.deadline) {
+      d.score = clampScore(d.score - 12);
+      G.addLog(`${REGIONS[id].name}'s demand went unanswered — relations suffer.`, 'log-crisis');
+      d.pendingDemand = null;
+    }
+
+    // War declaration
+    if (prof.canWar && prof.warThreshold !== null && d.score <= prof.warThreshold) {
+      d.atWar = true;
+      d.warDeclaredTurn = G.turn;
+      d.warAttackTurn   = G.turn - 1; // allow attack this same turn
+      G.addLog(`⚔ ${REGIONS[id].name} has DECLARED WAR on Troy!`, 'log-crisis');
+    }
+  });
+
+  // Clear trade record for next turn
+  G.lastTradedRegionId = null;
+}
+
+// ── War battle configs injected into the battle queue ─────────
+function getDiplomaticWarBattles() {
+  const battles = [];
+  Object.entries(DIPLO_PROFILE).forEach(([id, prof]) => {
+    const rs = G.regionState[id];
+    if (!rs || rs.destroyed || !rs.diplo) return;
+    const d = rs.diplo;
+    if (!d.atWar) return;
+    // Attack every 2 turns to avoid overwhelming the player
+    if (d.warAttackTurn !== null && G.turn - d.warAttackTurn < 2) return;
+
+    d.warAttackTurn = G.turn;
+    battles.push({
+      attacker:     REGIONS[id].name,
+      attackerIcon: REGIONS[id].icon,
+      baseSize:     prof.military + Math.floor(Math.random() * 18),
+      type:         prof.military >= 50 ? 'invasion' : prof.military >= 25 ? 'siege' : 'raid',
+      desc:         `${REGIONS[id].name} forces march on Troy in open war.`,
+      regionId:     id,
+    });
+  });
+  return battles;
+}
+
+// ── Player diplomatic actions ─────────────────────────────────
+function diploGoldGift(regionId, amount) {
+  const rs   = G.regionState[regionId];
+  const d    = rs.diplo;
+  const prof = DIPLO_PROFILE[regionId];
+  if (!d || G.res.gold < amount) return;
+  G.res.gold -= amount;
+  const gain = amount <= 5 ? 9 : amount <= 15 ? 22 : 35;
+  d.score = clampScore(d.score + gain);
+  G.addLog(`Sent ◎${amount} as a gift to ${REGIONS[regionId].name}. Relations improved by +${gain}.`, 'log-good');
+  renderAll();
+  renderDiploList();
+  renderDiploDetail(regionId);
+}
+
+function diploBronzeGift(regionId, qty) {
+  const rs   = G.regionState[regionId];
+  const d    = rs.diplo;
+  const prof = DIPLO_PROFILE[regionId];
+  if (!d || G.res.bronze < qty) return;
+  G.res.bronze -= qty;
+  const base  = qty * 14;
+  const bonus = prof.interests.includes('bronze') ? Math.round(base * 0.5) : 0;
+  const gain  = base + bonus;
+  d.score = clampScore(d.score + gain);
+  G.addLog(`Sent ${qty} bronze to ${REGIONS[regionId].name}. Relations improved by +${gain}.`, 'log-good');
+  renderAll();
+  renderDiploList();
+  renderDiploDetail(regionId);
+}
+
+function diploGrainGift(regionId) {
+  const rs   = G.regionState[regionId];
+  const d    = rs.diplo;
+  const prof = DIPLO_PROFILE[regionId];
+  if (!d || G.res.grain < 5) return;
+  G.res.grain -= 5;
+  const gain = prof.interests.includes('grain') ? 16 : 9;
+  d.score = clampScore(d.score + gain);
+  G.addLog(`Sent grain to ${REGIONS[regionId].name}. Relations improved by +${gain}.`, 'log-good');
+  renderAll();
+  renderDiploList();
+  renderDiploDetail(regionId);
+}
+
+function diploFulfillDemand(regionId) {
+  const rs = G.regionState[regionId];
+  const d  = rs.diplo;
+  if (!d?.pendingDemand) return;
+  const { resource, qty } = d.pendingDemand;
+  if ((G.res[resource] || 0) < qty) return;
+  G.res[resource] -= qty;
+  d.score = clampScore(d.score + 20);
+  d.pendingDemand = null;
+  G.addLog(`Fulfilled ${REGIONS[regionId].name}'s demand. Relations greatly improved.`, 'log-good');
+  renderAll();
+  renderDiploList();
+  renderDiploDetail(regionId);
+}
+
+function diploSignTradeDeal(regionId) {
+  const rs = G.regionState[regionId];
+  const d  = rs.diplo;
+  if (!d || G.res.gold < 10 || d.score < 35 || d.tradeDeal) return;
+  G.res.gold -= 10;
+  d.tradeDeal = true;
+  d.score = clampScore(d.score + 6);
+  G.addLog(`Trade agreement signed with ${REGIONS[regionId].name}. 15% discount on trade.`, 'log-good');
+  renderAll();
+  renderDiploList();
+  renderDiploDetail(regionId);
+}
+
+function diploFormAlliance(regionId) {
+  const rs = G.regionState[regionId];
+  const d  = rs.diplo;
+  if (!d || G.res.gold < 20 || d.score < 62 || d.alliance) return;
+  G.res.gold -= 20;
+  d.alliance  = true;
+  d.tradeDeal = true;
+  d.score = clampScore(d.score + 10);
+  G.addLog(`⚜ ALLIANCE forged with ${REGIONS[regionId].name}! They will aid Troy in defense.`, 'log-good');
+  renderAll();
+  renderDiploList();
+  renderDiploDetail(regionId);
+}
+
+function diploOfferPeace(regionId) {
+  const rs = G.regionState[regionId];
+  const d  = rs.diplo;
+  if (!d?.atWar || G.res.gold < 10 || G.res.bronze < 5) return;
+  G.res.gold   -= 10;
+  G.res.bronze -= 5;
+  d.atWar = false;
+  d.score = -18;
+  G.addLog(`Peace treaty with ${REGIONS[regionId].name}. War ends — tensions remain.`, 'log-event');
+  renderAll();
+  renderDiploList();
+  renderDiploDetail(regionId);
+}
+
+function diploRefuseDemand(regionId) {
+  const rs = G.regionState[regionId];
+  const d  = rs.diplo;
+  if (!d?.pendingDemand) return;
+  d.score = clampScore(d.score - 18);
+  d.pendingDemand = null;
+  G.addLog(`Refused ${REGIONS[regionId].name}'s demand. Relations deteriorated.`, 'log-crisis');
+  renderAll();
+  renderDiploList();
+  renderDiploDetail(regionId);
+}
+
+// ── Modal rendering ───────────────────────────────────────────
+let selectedDiploId = null;
+
+function openDiploModal() {
+  renderDiploList();
+  if (selectedDiploId) renderDiploDetail(selectedDiploId);
+  document.getElementById('diplo-modal').style.display = 'flex';
+}
+
+function renderDiploList() {
+  const container = document.getElementById('diplo-list');
+  if (!container) return;
+
+  const rows = Object.entries(REGIONS)
+    .filter(([id, r]) => !r.isPlayer)
+    .map(([id, region]) => {
+      const rs  = G.regionState[id];
+      const d   = rs.diplo;
+      const destroyed = rs.destroyed;
+
+      let label, color, barPct;
+      if (destroyed) {
+        label = '💀 Destroyed'; color = '#3a2010'; barPct = 0;
+      } else if (!d) {
+        label = '☠ Hostile'; color = '#c03030'; barPct = 10;
+      } else {
+        label  = getDiploLabel(d.score, d.atWar);
+        color  = getDiploColor(d.score, d.atWar);
+        barPct = Math.round(((d.score + 100) / 200) * 100);
+      }
+
+      const badges = [];
+      if (d?.alliance) badges.push('🤝');
+      if (d?.tradeDeal && !d?.alliance) badges.push('📜');
+      if (d?.atWar) badges.push('⚔');
+      if (d?.pendingDemand) badges.push('📨');
+
+      const selClass  = selectedDiploId === id ? ' selected' : '';
+      const warClass  = d?.atWar ? ' diplo-at-war' : '';
+      return `<div class="diplo-row${selClass}${warClass}" onclick="selectDiploRegion('${id}')">
+        <div class="drow-icon">${region.icon}</div>
+        <div class="drow-body">
+          <div class="drow-name">${region.name.split('(')[0].trim()} <span class="drow-badges">${badges.join('')}</span></div>
+          <div class="drow-bar-bg"><div class="drow-bar-fill" style="width:${barPct}%;background:${color}"></div></div>
+        </div>
+        <div class="drow-status" style="color:${color}">${label}</div>
+      </div>`;
+    }).join('');
+
+  container.innerHTML = rows;
+}
+
+function selectDiploRegion(id) {
+  selectedDiploId = id;
+  renderDiploList();       // re-render to update .selected class
+  renderDiploDetail(id);
+}
+
+function renderDiploDetail(id) {
+  const container = document.getElementById('diplo-detail');
+  if (!container) return;
+
+  const region = REGIONS[id];
+  const rs     = G.regionState[id];
+  const d      = rs.diplo;
+  const prof   = DIPLO_PROFILE[id];
+
+  if (rs.destroyed) {
+    container.innerHTML = `<div class="diplo-detail-card">
+      <div class="dd-name">${region.icon} ${region.name}</div>
+      <div class="dd-status" style="color:#4a3020">💀 DESTROYED</div>
+      <p class="dd-desc">This nation has collapsed. Diplomatic relations are no longer possible.</p>
+    </div>`;
+    return;
+  }
+
+  if (!d || !prof) {
+    container.innerHTML = `<div class="diplo-detail-card">
+      <div class="dd-name">${region.icon} ${region.name}</div>
+      <div class="dd-status" style="color:#c03030">☠ HOSTILE — No diplomacy possible</div>
+      <p class="dd-desc">${region.desc}</p>
+    </div>`;
+    return;
+  }
+
+  const label  = getDiploLabel(d.score, d.atWar);
+  const color  = getDiploColor(d.score, d.atWar);
+  const barPct = Math.round(((d.score + 100) / 200) * 100);
+
+  // Pending demand info
+  let demandHtml = '';
+  if (d.pendingDemand) {
+    const dm = d.pendingDemand;
+    const canFulfill = (G.res[dm.resource] || 0) >= dm.qty;
+    const meta = RES_META[dm.resource] || { icon:'?', name: dm.resource };
+    demandHtml = `<div class="dd-demand-box">
+      📨 <b>DEMAND:</b> ${REGIONS[id].name} demands ${dm.qty} ${meta.icon} ${meta.name} (deadline: Year ${dm.deadline}).
+      <br>Fulfill to gain +20 relations, or refuse for −18.
+      <div class="dd-actions" style="margin-top:8px">
+        <button class="dd-action-btn" ${!canFulfill?'disabled':''} onclick="diploFulfillDemand('${id}')">
+          ✓ Fulfill Demand <span class="action-cost">${meta.icon}${dm.qty}</span>
+        </button>
+        <button class="dd-action-btn" onclick="diploRefuseDemand('${id}')">
+          ✗ Refuse
+        </button>
+      </div>
+    </div>`;
+  }
+
+  // Action buttons
+  const r = G.res;
+  const actions = [];
+
+  if (!d.atWar) {
+    actions.push({ label:'Send Small Gold Gift',  cost:'◎5',   enabled: r.gold >= 5,                    cls:'', fn:`diploGoldGift('${id}',5)` });
+    actions.push({ label:'Send Large Gold Gift',  cost:'◎15',  enabled: r.gold >= 15,                   cls:'', fn:`diploGoldGift('${id}',15)` });
+    actions.push({ label:'Send Gold Delegation',  cost:'◎30',  enabled: r.gold >= 30,                   cls:'', fn:`diploGoldGift('${id}',30)` });
+    actions.push({ label:'Send Bronze Tribute (×1)', cost:'⚙1', enabled: r.bronze >= 1,                 cls:'', fn:`diploBronzeGift('${id}',1)` });
+    actions.push({ label:'Send Bronze Tribute (×3)', cost:'⚙3', enabled: r.bronze >= 3,                 cls:'', fn:`diploBronzeGift('${id}',3)` });
+    actions.push({ label:'Send Grain Relief',     cost:'🌾5',  enabled: r.grain >= 5,                   cls:'', fn:`diploGrainGift('${id}')` });
+    if (!d.tradeDeal && d.score >= 35) {
+      actions.push({ label:'Sign Trade Agreement', cost:'◎10 · Requires 35+', enabled: r.gold >= 10,    cls:'', fn:`diploSignTradeDeal('${id}')` });
+    }
+    if (!d.alliance && d.score >= 62) {
+      actions.push({ label:'Propose Alliance',     cost:'◎20 · Requires 62+', enabled: r.gold >= 20,   cls:'btn-alliance', fn:`diploFormAlliance('${id}')` });
+    }
+  } else {
+    actions.push({ label:'Offer Peace Treaty',    cost:'◎10 + ⚙5',           enabled: r.gold >= 10 && r.bronze >= 5, cls:'btn-peace', fn:`diploOfferPeace('${id}')` });
+  }
+
+  const actHtml = actions.map(a =>
+    `<button class="dd-action-btn ${a.cls}" ${!a.enabled?'disabled':''} onclick="${a.fn}">
+      ${a.label} <span class="action-cost">${a.cost}</span>
+    </button>`
+  ).join('');
+
+  container.innerHTML = `<div class="diplo-detail-card">
+    <div class="dd-name">${region.icon} ${region.name}</div>
+    <div class="dd-status" style="color:${color}">${label}</div>
+    <div class="dd-score-row">
+      <span>Score: <b style="color:${color}">${d.score > 0 ? '+' : ''}${d.score}</b></span>
+      ${d.alliance ? '<span class="dd-badge">🤝 Allied</span>' : ''}
+      ${d.tradeDeal && !d.alliance ? '<span class="dd-badge">📜 Trade Deal</span>' : ''}
+      ${d.atWar ? '<span class="dd-badge" style="color:#c05040;border-color:#582020">⚔ At War</span>' : ''}
+    </div>
+    <div class="dd-bar-bg"><div class="dd-bar-fill" style="width:${barPct}%;background:${color}"></div></div>
+    <p class="dd-desc">${region.desc}<br><br><span style="color:#4a3818">Interests: ${prof.interests.map(r => RES_META[r]?.icon || r).join(' ')}</span></p>
+    ${d.atWar ? `<div class="dd-war-box">⚔ <b>ACTIVE WAR</b> — ${region.name} armies assault Troy periodically. Offer a peace treaty or defeat them in battle to end the conflict.</div>` : ''}
+    ${d.tradeDeal ? `<div class="dd-benefit-box">📜 Trade Agreement active — <b>15% discount</b> on all purchases from this region.</div>` : ''}
+    ${d.alliance  ? `<div class="dd-benefit-box">🤝 Alliance active — <b>+10 garrison bonus</b> when defending against any attack.</div>` : ''}
+    ${demandHtml}
+    <div class="dd-section-label">Diplomatic Actions</div>
+    <div class="dd-actions">${actHtml}</div>
+  </div>`;
+}
 
 // ─── UI RENDERING ────────────────────────────────────────────
 function renderAll() {
@@ -1398,20 +1845,26 @@ function renderRegionInfo(id) {
 
   const exports = Object.entries(region.exports || {});
   const statusCls   = { friendly:'status-ok', neutral:'status-ok', overlord:'status-warn', suspicious:'status-warn', hostile:'status-hostile', destroyed:'status-gone' };
-  const statusLabel = getRelationLabel(rs.relation);
+  const d = rs.diplo;
+  const diploHtml = d ? `<div class="ri-diplo" style="color:${getDiploColor(d.score,d.atWar)};font-size:0.72em;margin:4px 0">
+    ${getDiploLabel(d.score,d.atWar)} (${d.score>0?'+':''}${d.score})
+    ${d.tradeDeal ? ' · 📜 Trade Deal' : ''}${d.alliance ? ' · 🤝 Allied' : ''}
+    <button class="open-trade-btn" style="margin-left:6px;padding:2px 7px;font-size:0.9em" onclick="selectDiploRegion('${id}');openDiploModal()">Diplomacy ▶</button>
+  </div>` : '';
 
   container.innerHTML = `
     <div class="region-info-card">
       <div class="ri-name">${region.icon} ${region.name}</div>
-      <span class="ri-status ${statusCls[rs.relation] || 'status-ok'}">${statusLabel}</span>
+      ${diploHtml}
       <p class="ri-desc">${region.desc}</p>
       ${exports.length > 0 ? `
         <div class="ri-exports">Exports: ${exports.map(([res,info]) => {
           const qty = Math.max(0, info.qty + (rs.exportMods[res] || 0));
-          const price = getPrice(res, id);
-          return `${info.icon} ${info.name} ×${qty} @ ◎${price.toFixed(1)}`;
+          const price = getPrice(res, id, true);
+          return `${info.icon} ${info.name} ×${qty} @ ◎${price.toFixed(1)}${d?.tradeDeal ? ' <span style="color:#50a040">▼15%</span>' : ''}`;
         }).join(' · ')}</div>` : ''}
-      ${exports.length > 0 ? `<button class="open-trade-btn" id="open-trade-${id}">Open Trade ▶</button>` : ''}
+      ${exports.length > 0 && !d?.atWar ? `<button class="open-trade-btn" id="open-trade-${id}">Open Trade ▶</button>` : ''}
+      ${d?.atWar ? '<div style="color:#c04030;font-size:0.72em;margin-top:6px">⚔ At war — trade suspended.</div>' : ''}
     </div>`;
 
   document.getElementById(`open-trade-${id}`)?.addEventListener('click', () => openTradeModal(id));
@@ -1587,7 +2040,7 @@ function renderTradeGoods(regionId) {
 
 function buyCartCost(regionId) {
   return Object.entries(buyCart).reduce((sum, [resId, qty]) => {
-    return sum + (qty > 0 ? getPrice(resId, regionId) * qty : 0);
+    return sum + (qty > 0 ? getPrice(resId, regionId, true) * qty : 0);
   }, 0);
 }
 
@@ -1661,6 +2114,7 @@ document.getElementById('tmod-confirm').addEventListener('click', () => {
 
   document.getElementById('trade-modal').style.display = 'none';
   G.tradeDoneThisTurn = true;
+  G.lastTradedRegionId = regionId;
   buyCart = {}; sellCart = {};
   renderAll();
 });
@@ -1690,12 +2144,20 @@ document.getElementById('emod-continue').addEventListener('click', () => {
 });
 
 // ─── NEXT TURN ───────────────────────────────────────────────
+document.getElementById('diplo-btn').addEventListener('click', openDiploModal);
+document.getElementById('diplo-close').addEventListener('click', () => {
+  document.getElementById('diplo-modal').style.display = 'none';
+});
+
 document.getElementById('next-turn-btn').addEventListener('click', () => {
   advanceTurn();
 });
 
 function advanceTurn() {
   G.tradeDoneThisTurn = false;
+
+  // 0. Update diplomacy (score drift, demands, war declarations)
+  updateDiplomacyPerTurn();
 
   // 1. Collect production
   const prod = getTroyProduction();
@@ -1725,6 +2187,12 @@ function advanceTurn() {
     if (ev.logText) G.addLog(ev.logText, ev.logClass);
 
     if (ev.isSiege) {
+      // Force Mycenae into war state via diplomacy
+      const myd = G.regionState.mycenae?.diplo;
+      if (myd && !myd.atWar) {
+        myd.atWar = true; myd.score = -85;
+        myd.warDeclaredTurn = G.turn; myd.warAttackTurn = G.turn - 1;
+      }
       showEventModal(ev, summary, () => {
         const siegeEff = ev.effects.find(e => e.type === 'siege');
         const battleConfig = siegeEff ? {
@@ -1732,7 +2200,8 @@ function advanceTurn() {
           attackerIcon: '🛡',
           baseSize: siegeEff.attackStrength,
           type: 'siege',
-          desc: 'A great Achaean fleet besieges the walls of Troy!'
+          desc: 'A great Achaean fleet besieges the walls of Troy!',
+          regionId: 'mycenae',
         } : null;
         if (battleConfig) {
           processBattleQueue([battleConfig], () => { renderAll(); checkTurnEnd(); });
@@ -1761,6 +2230,9 @@ function checkTurnEnd() {
 function buildAndProcessRandomBattles(callback) {
   const t = G.turn;
   const queue = [];
+
+  // ── Diplomatic wars (from region AI) ─────────────────────
+  getDiplomaticWarBattles().forEach(b => queue.push(b));
 
   // Kashka raiders (turns 2-10)
   if (t >= 2 && t <= 10 && Math.random() < 0.22) {
@@ -1814,7 +2286,8 @@ function simulateBattle(config) {
   const atkSize = Math.round(config.baseSize * (0.8 + Math.random() * 0.4));
 
   const moraleMult = G.population > 70 ? 1.12 : G.population > 40 ? 1.0 : 0.82;
-  const defBase = G.garrison * (1 + G.walls * 0.28) * moraleMult + G.cavalryBonus * 5;
+  const allianceBonus = getAllianceBonus();
+  const defBase = (G.garrison + allianceBonus) * (1 + G.walls * 0.28) * moraleMult + G.cavalryBonus * 5;
 
   const atkBase = atkSize * typeMultiplier;
 
@@ -1879,6 +2352,19 @@ function applyBattleResult(result) {
     G.addLog(`✓ ${config.attacker} driven back. Troy holds!`, 'log-good');
   } else {
     G.addLog(`🏆 ${config.attacker} crushed decisively. Troy's glory grows!`, 'log-good');
+  }
+
+  // Diplomatic war: update scores based on result
+  if (config.regionId) {
+    const d = G.regionState[config.regionId]?.diplo;
+    if (d?.atWar) {
+      if (outcome === 'decisive_victory' || outcome === 'victory') {
+        d.score = clampScore(d.score + 10); // war weariness — they may seek peace
+        if (d.score > -10) { d.atWar = false; G.addLog(`${config.attacker} retreats. War ends.`, 'log-good'); }
+      } else if (outcome === 'sack' || outcome === 'defeat') {
+        d.score = clampScore(d.score - 8);  // emboldened
+      }
+    }
   }
 }
 
