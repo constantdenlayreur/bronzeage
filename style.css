@@ -954,7 +954,8 @@ html, body {
 }
 
 #bmod-atk-cas { color: #c04030; }
-#bmod-def-cas { color: #409060; }
+#bmod-def-cas { color: #409060; font-size: 0.83em; }
+.bmod-loss-after { color: #e09050; font-weight: bold; }
 
 #bmod-continue {
   display: block;

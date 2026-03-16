@@ -1325,6 +1325,13 @@ function updateDiplomacyPerTurn() {
   G.lastTradedRegionId = null;
 }
 
+// ── Hatti military power decays with the Late Bronze Age collapse ─────
+// Turn 1 (1250 BCE): ~95 — peak empire; Turn 11 (1180 BCE): ~30 — barely intact
+function getHattiMilitary() {
+  const base = 95 - (G.turn - 1) * 6;  // 95 → 35 over turns 1-11
+  return Math.max(30, Math.round(base));
+}
+
 // ── War battle configs injected into the battle queue ─────────
 function getDiplomaticWarBattles() {
   const battles = [];
@@ -1337,11 +1344,12 @@ function getDiplomaticWarBattles() {
     if (d.warAttackTurn !== null && G.turn - d.warAttackTurn < 2) return;
 
     d.warAttackTurn = G.turn;
+    const effMilitary = id === 'hatti' ? getHattiMilitary() : prof.military;
     battles.push({
       attacker:     REGIONS[id].name,
       attackerIcon: REGIONS[id].icon,
-      baseSize:     prof.military + Math.floor(Math.random() * 18),
-      type:         prof.military >= 50 ? 'invasion' : prof.military >= 25 ? 'siege' : 'raid',
+      baseSize:     effMilitary + Math.floor(Math.random() * 18),
+      type:         effMilitary >= 60 ? 'invasion' : effMilitary >= 35 ? 'siege' : 'raid',
       desc:         `${REGIONS[id].name} forces march on Troy in open war.`,
       regionId:     id,
     });
@@ -2532,13 +2540,22 @@ function simulateBattle(config) {
 
   const ratio = defTotalRolls / atkTotalRolls;
   let outcome;
-  if (ratio >= 1.5)      outcome = 'decisive_victory';
-  else if (ratio >= 1.0) outcome = 'victory';
+  if (ratio >= 1.5)       outcome = 'decisive_victory';
+  else if (ratio >= 1.0)  outcome = 'victory';
   else if (ratio >= 0.80) outcome = 'pyrrhic';
   else if (ratio >= 0.55) outcome = 'defeat';
-  else                   outcome = 'sack';
+  else                    outcome = 'sack';
 
-  return { config, atkSize, rounds, outcome, atkTotalCas, defTotalCas, atkTotalRolls, defTotalRolls };
+  // Pre-compute expected garrison losses (mirrors applyGarrisonLoss exactly)
+  const LOSS_FRAC = { decisive_victory: 0.02, victory: 0.05, pyrrhic: 0.20, defeat: 0.40, sack: 0.60 };
+  const lf = LOSS_FRAC[outcome];
+  const mLossExp = Math.min(G.militia,  Math.round(G.militia  * lf * 1.25));
+  const iLossExp = Math.min(G.infantry, Math.round(G.infantry * lf * 0.75));
+  const garrisonBefore = { militia: G.militia, infantry: G.infantry };
+  const garrisonAfter  = { militia: Math.max(0, G.militia - mLossExp), infantry: Math.max(0, G.infantry - iLossExp) };
+
+  return { config, atkSize, rounds, outcome, atkTotalCas, defTotalCas, atkTotalRolls, defTotalRolls,
+           garrisonBefore, garrisonAfter, mLossExp, iLossExp };
 }
 
 function applyBattleResult(result) {
@@ -2585,7 +2602,8 @@ function applyBattleResult(result) {
 }
 
 function showBattleModal(result, onDone) {
-  const { config, atkSize, rounds, outcome, atkTotalCas, defTotalCas, atkTotalRolls, defTotalRolls } = result;
+  const { config, atkSize, rounds, outcome, atkTotalCas, defTotalCas, atkTotalRolls, defTotalRolls,
+          garrisonBefore, garrisonAfter, mLossExp, iLossExp } = result;
   const year = 1250 - (G.turn - 1) * 7;
 
   document.getElementById('bmod-year').textContent    = `${year} BCE`;
@@ -2595,7 +2613,7 @@ function showBattleModal(result, onDone) {
   document.getElementById('bmod-atk-name').textContent = config.attacker;
   document.getElementById('bmod-atk-size').textContent = `Army: ${atkSize}`;
   document.getElementById('bmod-atk-power').textContent = `Power: ${Math.round(atkTotalRolls)}`;
-  document.getElementById('bmod-def-size').textContent  = `Militia: ${G.militia}  Infantry: ${G.infantry}  (str: ${getGarrisonStrength()})`;
+  document.getElementById('bmod-def-size').textContent  = `Militia: ${garrisonBefore.militia}  Infantry: ${garrisonBefore.infantry}  (str: ${getGarrisonStrength()})`;
   document.getElementById('bmod-def-power').textContent = `Power: ${Math.round(defTotalRolls)}`;
   document.getElementById('bmod-def-walls').textContent = `🏰 Walls ×${(1 + G.walls * 0.28).toFixed(2)}`;
 
@@ -2630,7 +2648,13 @@ function showBattleModal(result, onDone) {
   titleEl.className   = outcomeInfo.cls;
 
   document.getElementById('bmod-atk-cas').textContent = `${config.attacker} casualties: ${atkTotalCas}`;
-  document.getElementById('bmod-def-cas').textContent = `Troy casualties: ${defTotalCas}`;
+  const totalLoss = mLossExp + iLossExp;
+  document.getElementById('bmod-def-cas').innerHTML =
+    totalLoss > 0
+      ? `Troy garrison: ${garrisonBefore.militia}+${garrisonBefore.infantry} → ` +
+        `<span class="bmod-loss-after">${garrisonAfter.militia}+${garrisonAfter.infantry}</span>` +
+        ` &nbsp;(−${mLossExp} militia, −${iLossExp} infantry)`
+      : `Troy garrison: ${garrisonBefore.militia}+${garrisonBefore.infantry} — no significant losses`;
 
   const modal = document.getElementById('battle-modal');
   modal.style.display = 'flex';
