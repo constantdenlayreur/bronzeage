@@ -889,6 +889,11 @@ let hoveredRegion    = null;
 let selectedRegionId = null;
 let armySelected     = false;  // true when player clicked their army pawn
 
+// Historical map background image (map.jpg placed next to index.html)
+const mapBg = new Image();
+mapBg.src = 'map.jpg';
+mapBg.onload = () => { if (canvas.width > 0) drawMap(); };
+
 function resizeCanvas() {
   const container = document.getElementById('map-area');
   canvas.width  = container.clientWidth;
@@ -906,30 +911,23 @@ function drawMap() {
   const w = canvas.width, h = canvas.height;
   const s = Math.min(scaleX, scaleY);
 
-  // ── 1. Sea background ─────────────────────────────────────
-  // Multi-stop gradient: deeper at edges, slightly lighter in Mediterranean
-  const seaGrad = ctx.createLinearGradient(0, 0, w, h);
-  seaGrad.addColorStop(0,   '#0a1e32');
-  seaGrad.addColorStop(0.35,'#102840');
-  seaGrad.addColorStop(0.6, '#0d2238');
-  seaGrad.addColorStop(1,   '#071420');
-  ctx.fillStyle = seaGrad;
-  ctx.fillRect(0, 0, w, h);
-
-  // Mediterranean shimmer — subtle radial highlight
-  const medGlow = ctx.createRadialGradient(w*0.28, h*0.70, 0, w*0.28, h*0.70, w*0.38);
-  medGlow.addColorStop(0,   'rgba(30,90,140,0.28)');
-  medGlow.addColorStop(0.6, 'rgba(15,55,95,0.12)');
-  medGlow.addColorStop(1,   'rgba(0,0,0,0)');
-  ctx.fillStyle = medGlow;
-  ctx.fillRect(0, 0, w, h);
-
-  // Black Sea shimmer
-  const bsGlow = ctx.createRadialGradient(w*0.42, h*0.12, 0, w*0.42, h*0.12, w*0.22);
-  bsGlow.addColorStop(0,   'rgba(25,75,120,0.22)');
-  bsGlow.addColorStop(1,   'rgba(0,0,0,0)');
-  ctx.fillStyle = bsGlow;
-  ctx.fillRect(0, 0, w, h);
+  // ── 1. Background ─────────────────────────────────────────
+  if (mapBg.complete && mapBg.naturalWidth > 0) {
+    // Draw historical map image stretched to fill the canvas
+    ctx.drawImage(mapBg, 0, 0, w, h);
+    // Darken slightly so game overlays read better
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(0, 0, w, h);
+  } else {
+    // Fallback gradient while image loads (or if map.jpg is missing)
+    const seaGrad = ctx.createLinearGradient(0, 0, w, h);
+    seaGrad.addColorStop(0,   '#0a1e32');
+    seaGrad.addColorStop(0.35,'#102840');
+    seaGrad.addColorStop(0.6, '#0d2238');
+    seaGrad.addColorStop(1,   '#071420');
+    ctx.fillStyle = seaGrad;
+    ctx.fillRect(0, 0, w, h);
+  }
 
   // ── 2. Regions ────────────────────────────────────────────
   Object.entries(REGIONS).forEach(([id, region]) => drawRegion(id, region));
@@ -1317,24 +1315,13 @@ function drawRegion(id, region) {
   if (destroyed)      fillColor = '#160e0e';
   else if (hov)       fillColor = lighten(region.fillColor, 0.38);
   else if (sel)       fillColor = lighten(region.fillColor, 0.22);
+  // When the historical map image is loaded, use semi-transparent fills so
+  // the terrain texture shows through; otherwise keep solid fills.
+  const usingMapBg = mapBg.complete && mapBg.naturalWidth > 0;
+  ctx.globalAlpha = usingMapBg ? (hov || sel ? 0.55 : 0.38) : 1.0;
   ctx.fillStyle = fillColor;
   ctx.fill();
-
-  // Inner terrain gradient overlay (top-left lighter, bottom-right darker)
-  if (!destroyed) {
-    const xs = region.poly.map(p => p[0] * scaleX);
-    const ys = region.poly.map(p => p[1] * scaleY);
-    const minX = Math.min(...xs), maxX = Math.max(...xs);
-    const minY = Math.min(...ys), maxY = Math.max(...ys);
-    try {
-      const tg = ctx.createLinearGradient(minX, minY, maxX, maxY);
-      tg.addColorStop(0,   'rgba(255,235,180,0.07)');
-      tg.addColorStop(0.5, 'rgba(0,0,0,0)');
-      tg.addColorStop(1,   'rgba(0,0,0,0.10)');
-      ctx.fillStyle = tg;
-      ctx.fill();
-    } catch(e) { /* ignore degenerate gradients */ }
-  }
+  ctx.globalAlpha = 1.0;
 
   // Border
   ctx.strokeStyle = destroyed ? '#2a1818'
