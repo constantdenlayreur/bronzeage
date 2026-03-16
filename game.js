@@ -460,7 +460,12 @@ const G = {
   vassalOfHatti: true,
   tributeDoubleThisTurn: false,
   tributeRefusedThisTurn: false,
-  cavalryBonus: 0,  // elite bonus from trained cavalry (max 3)
+  cavalryBonus: 0,  // chariot teams (max 5): +8 defence each, +10% expedition power each
+
+  stability:    75, // 0–100: social cohesion — scales production & battle morale
+  ironWorking:  false, // researched iron-working (unlocked turn 7+)
+  tollPolicy:   'normal', // 'low' | 'normal' | 'high' — Hellespont toll setting
+  droughtLevel: 0,  // 0=good, 1=dry year (−30% grain), 2=severe drought (−55% grain)
 
   // Local production upgrades (permanent investments)
   production: {
@@ -513,15 +518,32 @@ Object.keys(REGIONS).forEach(id => {
   };
 });
 
+// ─── DROUGHT & STABILITY HELPERS ─────────────────────────────
+
+function droughtGrainMult() { return [1.0, 0.70, 0.45][G.droughtLevel]; }
+
+function stabilityProdMult() {
+  if (G.stability >= 80) return 1.15;
+  if (G.stability >= 60) return 1.00;
+  if (G.stability >= 40) return 0.85;
+  return 0.70;
+}
+
+function getTollGoldBonus() {
+  return { low: -3, normal: 0, high: 5 }[G.tollPolicy] ?? 0;
+}
+
 // ─── RESOURCE PRODUCTION (per turn) ─────────────────────────
 function getTroyProduction() {
-  const p = G.production;
+  const p  = G.production;
+  const sm = stabilityProdMult();
+  const dm = droughtGrainMult();
   return {
-    grain:  4 + p.farmland * 2,   // Troad farmland + expansions
-    gold:   5 + p.tollgate * 3,   // Hellespont tolls + fortified gates
+    grain:  Math.max(0, Math.round((4 + p.farmland * 2) * dm * sm)),
+    gold:   Math.round((5 + p.tollgate * 3 + getTollGoldBonus()) * sm),
     copper: 0,
     tin:    0,
-    bronze: p.smithy,             // Bronze Smithy auto-production
+    bronze: Math.max(0, Math.round(p.smithy * sm)),
   };
 }
 
@@ -533,8 +555,9 @@ function popGrainConsumption() {
 // Headcount and weighted combat strength
 function getTotalGarrison() { return G.militia + G.infantry; }
 function getGarrisonStrength() {
-  // Infantry count as 1.6× — bronze arms & armour
-  return G.militia * 1.0 + Math.round(G.infantry * 1.6);
+  // Infantry: 1.6× for bronze arms; +30% more if iron weapons researched
+  const ironMult = G.ironWorking ? 1.30 : 1.0;
+  return G.militia * 1.0 + Math.round(G.infantry * 1.6 * ironMult);
 }
 
 // Gold upkeep: militia cheaper (less equipment), infantry costlier
@@ -653,6 +676,79 @@ function resolveSiege(attackStrength) {
     }
     return false;
   }
+}
+
+// ─── DROUGHT ─────────────────────────────────────────────────
+// Historical: the 3.2kya megadrought struck hardest 1200-1150 BCE (turns 7-15)
+function updateDrought() {
+  const t = G.turn;
+  const worsen  = t >= 7 ? 0.30 : 0.12;
+  const recover = G.droughtLevel === 2 ? 0.20 : 0.30;
+
+  if (G.droughtLevel < 2 && Math.random() < worsen) {
+    G.droughtLevel++;
+    if (G.droughtLevel === 1)
+      G.addLog('☀ Dry season — grain harvests down 30%.', 'log-event');
+    else
+      G.addLog('🔥 Severe drought — harvests nearly halved! Famine threatens.', 'log-crisis');
+  } else if (G.droughtLevel > 0 && Math.random() < recover) {
+    G.droughtLevel--;
+    G.addLog(G.droughtLevel === 0 ? '🌧 Rains return — harvests recovering.' : '🌦 Drought easing slightly.', 'log-good');
+  }
+}
+
+// ─── STABILITY ───────────────────────────────────────────────
+// Social cohesion: 0-100. Scales all production. Modifies battle morale.
+function updateStability() {
+  let d = -1; // natural drift — order requires active maintenance
+
+  // Food security
+  const grainNeed = popGrainConsumption() + garrisonGrainCost();
+  if (G.res.grain >= grainNeed + 6) d += 3;
+  else if (G.res.grain < grainNeed * 0.5) d -= 8;
+  else if (G.res.grain < grainNeed)       d -= 4;
+
+  // Prosperity
+  if (G.res.gold >= 15) d += 2;
+  else if (G.res.gold <= 2) d -= 3;
+
+  // Commerce: active trade deals signal healthy relations
+  const anyDeal = Object.values(G.regionState).some(rs => rs.diplo?.tradeDeal && !rs.destroyed);
+  if (anyDeal) d += 3;
+
+  // Walls (physical security)
+  if (G.walls >= 4) d += 1;
+  if (G.walls <= 1) d -= 2;
+
+  // Active wars (fear and disruption)
+  const warCount = Object.values(G.regionState).filter(rs => rs.diplo?.atWar && !rs.destroyed).length;
+  d -= warCount * 3;
+
+  G.stability = Math.max(0, Math.min(100, G.stability + d));
+}
+
+// ─── RANDOM MINI-EVENTS ───────────────────────────────────────
+const MINI_EVENTS = [
+  { w: 12, fn: () => { G.res.grain += 8;  G.addLog('🌾 Bumper harvest — grain stores +8.', 'log-good'); } },
+  { w:  7, fn: () => { G.res.grain = Math.max(0, G.res.grain - 6); G.stability = Math.max(0, G.stability - 6);
+                       G.addLog('🔥 Granary fire! Grain −6, stability shaken.', 'log-crisis'); } },
+  { w:  9, fn: () => { G.res.gold += 7;   G.addLog('⛵ Rich merchant fleet arrives — ◎7 in toll duties.', 'log-good'); } },
+  { w:  5, fn: () => { G.population = Math.max(1, G.population - 8); G.stability = Math.max(0, G.stability - 12);
+                       G.addLog('💀 Plague strikes the city — population −8, stability −12.', 'log-crisis'); } },
+  { w:  8, fn: () => { G.res.gold = Math.max(0, G.res.gold - 4);
+                       G.addLog('🌊 Storm sinks a merchant ship — ◎4 lost.', 'log-event'); } },
+  { w:  8, fn: () => { const opts=['grain','bronze','copper','tin']; const r=opts[Math.floor(Math.random()*opts.length)];
+                       G.res[r]=(G.res[r]||0)+4; G.addLog(`🎁 Foreign envoy brings gifts — +4 ${RES_META[r]?.icon||r}.`, 'log-good'); } },
+  { w:  7, fn: () => { G.stability = Math.min(100, G.stability + 10);
+                       G.addLog('🎉 Festival season — city morale restored, stability +10.', 'log-good'); } },
+  { w: 53, fn: () => {} },  // no event (weighted blank for ~53% chance of nothing)
+];
+
+function rollMiniEvent() {
+  if (G.turn < 2) return;
+  const total = MINI_EVENTS.reduce((s, e) => s + e.w, 0);
+  let r = Math.random() * total;
+  for (const ev of MINI_EVENTS) { r -= ev.w; if (r <= 0) { ev.fn(); return; } }
 }
 
 // ─── APPLY EVENT EFFECTS ─────────────────────────────────────
@@ -1428,6 +1524,16 @@ function updateDiplomacyPerTurn() {
     }
   });
 
+  // Hellespont toll policy — maritime regions react
+  if (G.tollPolicy !== 'normal') {
+    const maritime = ['cyprus','mycenae','crete','egypt','ugarit'];
+    maritime.forEach(mid => {
+      const md = G.regionState[mid]?.diplo;
+      if (!md || G.regionState[mid]?.destroyed || md.atWar) return;
+      md.score = clampScore(md.score + (G.tollPolicy === 'low' ? 2 : -3));
+    });
+  }
+
   // Clear trade record for next turn
   G.lastTradedRegionId = null;
 }
@@ -1799,16 +1905,36 @@ function renderCityStats() {
   document.getElementById('bar-infantry').style.width = infantryPct + '%';
   document.getElementById('val-infantry').textContent = G.infantry;
 
+  // Stability bar
+  const stabEl = document.getElementById('bar-stability');
+  if (stabEl) {
+    stabEl.style.width      = G.stability + '%';
+    stabEl.style.background = G.stability >= 70 ? '#3a8f50' : G.stability >= 45 ? '#a07820' : '#b03828';
+  }
+  const stabValEl = document.getElementById('val-stability');
+  if (stabValEl) {
+    const stabLabel = G.stability >= 80 ? 'Stable' : G.stability >= 60 ? 'Steady' : G.stability >= 40 ? 'Tense' : 'CRISIS';
+    stabValEl.textContent = `${G.stability} — ${stabLabel}`;
+    stabValEl.style.color = G.stability >= 60 ? '#6a9050' : G.stability >= 40 ? '#a07820' : '#b03828';
+  }
+
+  // Chariot display
+  const charEl = document.getElementById('val-chariots');
+  if (charEl) charEl.textContent = `${G.cavalryBonus}/5`;
+  const charBarEl = document.getElementById('bar-chariots');
+  if (charBarEl) charBarEl.style.width = (G.cavalryBonus / 5 * 100) + '%';
+
   // Upkeep breakdown
   const goldUp  = garrisonGoldCost();
   const grainUp = garrisonGrainCost();
   const upkeepEl = document.getElementById('garrison-upkeep');
   if (upkeepEl) {
-    upkeepEl.textContent = `Upkeep: ◎${goldUp}/yr  🌾${grainUp}/yr  · Strength: ${getGarrisonStrength()}`;
+    const ironTag = G.ironWorking ? ' · ⚒ Iron' : '';
+    upkeepEl.textContent = `Upkeep: ◎${goldUp}/yr  🌾${grainUp}/yr  · Str: ${getGarrisonStrength()}${ironTag}`;
     upkeepEl.style.color = grainUp > getTroyProduction().grain - popGrainConsumption() ? '#c05030' : '#6a5020';
   }
 
-  // Production bonuses summary
+  // Production & policy summary
   const prodEl = document.getElementById('production-summary');
   if (prodEl) {
     const p = G.production;
@@ -1816,7 +1942,9 @@ function renderCityStats() {
     if (p.farmland) parts.push(`🌾+${p.farmland*2}/yr`);
     if (p.tollgate) parts.push(`◎+${p.tollgate*3}/yr`);
     if (p.smithy)   parts.push(`⚙+${p.smithy}/yr`);
-    prodEl.textContent = parts.length ? `City: ${parts.join('  ')}` : 'City: no upgrades';
+    const droughtTag = ['', ' · ☀Dry', ' · 🔥Drought'][G.droughtLevel];
+    const tollTag = G.tollPolicy !== 'normal' ? ` · Toll:${G.tollPolicy.toUpperCase()}` : '';
+    prodEl.textContent = (parts.length ? `City: ${parts.join('  ')}` : 'City: no upgrades') + droughtTag + tollTag;
   }
 }
 
@@ -1958,8 +2086,31 @@ function renderActions() {
         renderAll();
       }
     },
-    // ── Defence & Trade ───────────────────────────────────────
-    { type: 'header', label: '🏰 Defence & Trade' },
+    // ── Hellespont Toll Policy ────────────────────────────────
+    { type: 'header', label: `⚖ HELLESPONT TOLL POLICY  [currently: ${G.tollPolicy.toUpperCase()}]` },
+    {
+      id: 'toll-low',
+      label: `🚢 Low Tolls  (−◎3/yr · maritime diplo +2/yr)`,
+      cost: G.tollPolicy === 'low' ? '✓ Active' : '',
+      enabled: G.tollPolicy !== 'low',
+      fn: () => { G.tollPolicy = 'low'; G.addLog('Toll gates lowered — ships pass freely. Maritime relations improve.', 'log-event'); renderAll(); }
+    },
+    {
+      id: 'toll-normal',
+      label: `🚢 Normal Tolls  (standard ◎5/yr base)`,
+      cost: G.tollPolicy === 'normal' ? '✓ Active' : '',
+      enabled: G.tollPolicy !== 'normal',
+      fn: () => { G.tollPolicy = 'normal'; G.addLog('Toll gates set to standard rates.', 'log-event'); renderAll(); }
+    },
+    {
+      id: 'toll-high',
+      label: `🚢 High Tolls  (+◎5/yr · maritime diplo −3/yr)`,
+      cost: G.tollPolicy === 'high' ? '✓ Active' : '',
+      enabled: G.tollPolicy !== 'high',
+      fn: () => { G.tollPolicy = 'high'; G.addLog('Toll gates raised — merchants pay dearly to pass the Hellespont.', 'log-event'); renderAll(); }
+    },
+    // ── Defence & Military Tech ──────────────────────────────
+    { type: 'header', label: '🏰 Defence & Military' },
     {
       id: 'walls',
       label: `🏰 Reinforce Walls +1`,
@@ -1986,16 +2137,30 @@ function renderActions() {
     },
     {
       id: 'cavalry',
-      label: `🐎 Train Cavalry`,
-      cost: `🐎1`,
-      enabled: r.horses >= 1 && G.cavalryBonus < 3,
+      label: `🐎 Train Chariot Team  (${G.cavalryBonus}/5)`,
+      cost: `🐎1 ⚙1 ◎3`,
+      enabled: r.horses >= 1 && r.bronze >= 1 && r.gold >= 3 && G.cavalryBonus < 5,
       fn: () => {
-        r.horses -= 1;
-        G.cavalryBonus = Math.min(3, G.cavalryBonus + 1);
-        G.addLog(`Cavalry trained. Elite bonus now ×${G.cavalryBonus}.`, 'log-good');
+        r.horses -= 1; r.bronze -= 1; r.gold -= 3;
+        G.cavalryBonus = Math.min(5, G.cavalryBonus + 1);
+        G.addLog(`Chariot team ready — +8 city defense, +10% expedition power.`, 'log-good');
         renderAll();
       }
     },
+    ...(G.ironWorking ? [] : [{
+      id: 'iron',
+      label: G.turn >= 7 ? `⚒ Research Iron Working` : `⚒ Research Iron Working  (available ~1208 BCE)`,
+      cost: `◎18 🔩2`,
+      enabled: G.turn >= 7 && r.gold >= 18 && r.tin >= 2,
+      fn: () => {
+        r.gold -= 18; r.tin -= 2;
+        G.ironWorking = true;
+        G.addLog('Iron working mastered! Infantry combat strength +30%. The Hittite iron monopoly is broken.', 'log-good');
+        G.stability = Math.min(100, G.stability + 8); // prestige boost
+        renderAll();
+      }
+    }]),
+    ...(G.ironWorking ? [{ type: 'header', label: '⚒ Iron Working — RESEARCHED (+30% infantry str)' }] : []),
     {
       id: 'sell-oil',
       label: `🫒 Sell Olive Oil`,
@@ -2472,13 +2637,20 @@ function advanceTurn() {
   // 0. Update diplomacy (score drift, demands, war declarations)
   updateDiplomacyPerTurn();
 
-  // 1. Collect production
+  // 0b. Update drought — must come before production since it changes grain mult
+  updateDrought();
+
+  // 1. Collect production (drought + stability + toll already factored in)
   const prod = getTroyProduction();
   G.res.grain  += prod.grain;
   G.res.gold   += prod.gold - garrisonGoldCost();
   if (prod.bronze > 0) {
     G.res.bronze += prod.bronze;
     G.addLog(`Bronze Smithy produced ${prod.bronze} bronze.`, 'log-good');
+  }
+  if (G.droughtLevel > 0) {
+    const label = G.droughtLevel === 1 ? 'dry season' : 'severe drought';
+    G.addLog(`🌾 Harvest reduced by ${G.droughtLevel === 1 ? '30' : '55'}% (${label}).`, 'log-event');
   }
 
   // 2. Pay tribute
@@ -2489,6 +2661,12 @@ function advanceTurn() {
 
   // 3b. Feed garrison (rations for soldiers)
   feedGarrison();
+
+  // 3c. Random mini-event (before stability — events may affect it)
+  rollMiniEvent();
+
+  // 3d. Update social stability
+  updateStability();
 
   // 4. Check starvation
   if (G.population <= 0) {
@@ -2639,7 +2817,9 @@ function simulateExpedition(city) {
   const cityDefSize = Math.max(8, effMil + Math.floor(Math.random() * 18));
   const cityDefBase = cityDefSize * 1.20;
 
-  const playerStr   = getGarrisonStrength();
+  // Chariots boost expedition attack power (+10% per team, up to +50%)
+  const chariotMult = 1 + G.cavalryBonus * 0.10;
+  const playerStr   = getGarrisonStrength() * chariotMult;
 
   let atkTotalRolls = 0, defTotalRolls = 0;
   let atkTotalCas   = 0, defTotalCas   = 0;
@@ -2690,6 +2870,10 @@ function applyExpeditionResult(result) {
   const prof = DIPLO_PROFILE[region];
   const d    = G.regionState[region]?.diplo;
 
+  // Stability: victories inspire, defeats demoralise
+  const expStabDelta = { decisive_victory: +6, victory: +4, pyrrhic: -5, defeat: -8, sack: -14 }[outcome] ?? 0;
+  G.stability = Math.max(0, Math.min(100, G.stability + expStabDelta));
+
   // Apply player garrison losses (attacker takes heavy casualties)
   applyGarrisonLoss(result.expLossFrac);
 
@@ -2727,7 +2911,10 @@ function simulateBattle(config) {
 
   const moraleMult    = G.population > 70 ? 1.12 : G.population > 40 ? 1.0 : 0.82;
   const allianceBonus = getAllianceBonus();
-  const defBase       = (getGarrisonStrength() + allianceBonus) * (1 + G.walls * 0.28) * moraleMult + G.cavalryBonus * 5;
+  // Stability morale (different from stabilityProdMult — direct combat modifier)
+  const stabMorale = G.stability >= 70 ? 1.08 : G.stability >= 50 ? 1.0 : G.stability >= 30 ? 0.88 : 0.72;
+  const defBase    = (getGarrisonStrength() + allianceBonus) * (1 + G.walls * 0.28) * moraleMult * stabMorale
+                     + G.cavalryBonus * 8;  // chariots: +8 each (was +5)
 
   const atkBase = atkSize * typeMultiplier;
 
@@ -2794,6 +2981,10 @@ function applyBattleResult(result) {
     applyGarrisonLoss(0.02);
     G.addLog(`🏆 ${config.attacker} crushed decisively. Troy's glory grows!`, 'log-good');
   }
+
+  // Stability effects: battles shake social cohesion
+  const stabDelta = { decisive_victory: +8, victory: +4, pyrrhic: -3, defeat: -12, sack: -22 }[outcome] ?? 0;
+  G.stability = Math.max(0, Math.min(100, G.stability + stabDelta));
 
   // Diplomatic war: update scores based on result
   if (config.regionId) {
@@ -2915,7 +3106,9 @@ function showBattleModal(result, onDone) {
 function checkVictory() {
   if (G.turn > G.maxTurns) {
     if (G.population > 20 && G.walls >= 1) {
-      const score = G.population + G.walls * 10 + getTotalGarrison() + G.res.bronze * 2 + G.res.gold;
+      const score = G.population + G.walls * 10 + getTotalGarrison() + G.res.bronze * 2 + G.res.gold
+                  + Math.round(G.stability / 5)  // social cohesion reward
+                  + (G.ironWorking ? 20 : 0);     // prestige of iron age transition
       endGame(true, `Troy has endured 100 years of catastrophe. As other great cities fell to fire and famine, Wilusa stood firm. The Bronze Age has ended — but your city breathes on into the new age. Poets will one day sing of Troy not for its fall, but for its endurance.`, score);
     } else {
       endGame(false, `Troy survived, but barely. Your walls crumble, your people are few. The dark age descends. History will remember Troy as a city that fell with the age that made it.`);

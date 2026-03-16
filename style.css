@@ -309,7 +309,8 @@ html, body {
 .cstat-bar { height: 100%; background: linear-gradient(90deg, #4a8030, #70c050); border-radius: 3px; transition: width 0.4s; }
 .bar-militia  { background: linear-gradient(90deg, #5a4a10, #a88828); }
 .bar-infantry { background: linear-gradient(90deg, #6a2010, #c04030); }
-.cstat-val { flex: none; width: 30px; text-align: right; color: #d4a017; font-weight: bold; }
+.bar-chariots { background: linear-gradient(90deg, #3a5a10, #70a020); }
+.cstat-val { flex: none; width: 80px; text-align: right; color: #d4a017; font-weight: bold; }
 .city-substat { font-size: 0.68em; color: #6a5020; letter-spacing: 0.5px; padding: 1px 4px; }
 
 .wall-pips { display: flex; gap: 3px; flex: 1; }
