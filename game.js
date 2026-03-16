@@ -10,7 +10,9 @@
 // Canvas target: fills the map area
 // All region polygons defined at reference size 820×480
 // We scale to actual canvas size at draw time
-const REF_W = 728, REF_H = 726;
+const REF_W = 1200, REF_H = 800;
+// Geographic bounds → ref coords: x=(lon-19)/45*1200, y=(48-lat)/30*800
+// Scale = 26.667 px per degree in both axes (equirectangular)
 
 // ─── REGION DEFINITIONS ─────────────────────────────────────
 // poly: array of [x, y] at reference 820×480
@@ -19,11 +21,11 @@ const REF_W = 728, REF_H = 726;
 const REGIONS = {
 
   // ── Troy / Wilusa (player city) ──────────────────────────
-  // NW tip of Anatolia, at the Hellespont strait
+  // NW tip of Anatolia (Troad). 40°N 26.5°E → ref(200, 213)
   troy: {
     name: 'Troy (Wilusa)', icon: '⚔', isPlayer: true,
-    cx: 158, cy: 228,
-    poly: [[130,205],[160,198],[190,205],[200,225],[194,250],[168,260],[140,252],[126,232],[128,210]],
+    cx: 200, cy: 213,
+    poly: [[187,191],[227,200],[240,219],[227,243],[187,240],[173,227],[173,205]],
     fillColor: '#4a2e08', borderColor: '#d4a017',
     desc: 'Your city. Guards the Hellespont, commanding the strait between the Aegean and Black Sea. Your wealth flows from tolls and trade.',
     relation: 'player',
@@ -31,10 +33,11 @@ const REGIONS = {
   },
 
   // ── Mycenae / Greece ────────────────────────────────────
+  // Peloponnese + S Greek mainland. ~37.5°N 22°E → ref(80, 280)
   mycenae: {
     name: 'Mycenae', icon: '🛡', isPlayer: false,
-    cx: 68, cy: 272,
-    poly: [[10,228],[45,212],[90,215],[120,235],[130,268],[122,302],[100,322],[68,328],[38,315],[14,282],[8,252]],
+    cx: 80, cy: 280,
+    poly: [[40,243],[120,243],[147,253],[147,280],[133,307],[93,320],[53,307],[40,280]],
     fillColor: '#2e1e44', borderColor: '#9a5cc0',
     desc: 'The great warrior kingdoms of Greece. Rich in silver and olive oil — but hungry for bronze. Their fleets grow bolder each year.',
     relation: 'suspicious',
@@ -47,10 +50,11 @@ const REGIONS = {
   },
 
   // ── Crete / Knossos ─────────────────────────────────────
+  // Elongated island. ~35.25°N 25°E → ref(160, 339)
   crete: {
     name: 'Crete (Knossos)', icon: '🐂', isPlayer: false,
-    cx: 130, cy: 330,
-    poly: [[78,320],[118,308],[162,305],[200,318],[202,334],[182,348],[135,350],[88,340]],
+    cx: 160, cy: 339,
+    poly: [[120,327],[147,327],[173,333],[200,331],[219,341],[187,349],[147,349],[120,344]],
     fillColor: '#1a2040', borderColor: '#4878b8',
     desc: 'Island realm of Knossos. Safe and prosperous, a crossroads of Aegean trade.',
     relation: 'friendly',
@@ -62,10 +66,11 @@ const REGIONS = {
   },
 
   // ── Arzawa (W. Anatolia, incl. Lukka) ───────────────────
+  // W & SW Anatolia. ~37.5°N 29.5°E → ref(280, 272)
   arzawa: {
     name: 'Arzawa', icon: '🌲', isPlayer: false,
-    cx: 202, cy: 265,
-    poly: [[128,210],[126,232],[140,252],[168,260],[194,250],[200,225],[228,222],[258,235],[272,258],[268,288],[250,308],[215,314],[178,308],[155,285],[138,268],[122,248],[118,228]],
+    cx: 280, cy: 272,
+    poly: [[227,227],[333,227],[347,253],[347,280],[320,307],[280,320],[253,320],[240,307],[213,280],[213,253],[213,213],[227,243]],
     fillColor: '#183520', borderColor: '#4a9038',
     desc: 'Your western neighbour in Anatolia. Rich in timber, grain, and horses. Often friendly but sometimes rivals the Hittites.',
     relation: 'neutral',
@@ -78,10 +83,11 @@ const REGIONS = {
   },
 
   // ── Hatti / Hittites ─────────────────────────────────────
+  // Central Anatolia. ~40°N 36.5°E → ref(467, 213)
   hatti: {
     name: 'Hatti (Hittites)', icon: '👑', isPlayer: false,
-    cx: 348, cy: 185,
-    poly: [[225,138],[272,118],[350,108],[424,112],[468,128],[484,158],[480,190],[460,222],[424,244],[380,252],[322,254],[278,248],[240,228],[225,198],[222,162]],
+    cx: 467, cy: 213,
+    poly: [[320,187],[320,160],[453,147],[560,160],[613,187],[613,227],[560,280],[507,280],[440,267],[387,253],[347,253],[333,227]],
     fillColor: '#2e1010', borderColor: '#c83028',
     desc: 'Your overlord. The Hittite Empire spans central Anatolia. They demand tribute in bronze each year — and expect your military support. Do not defy them.',
     relation: 'overlord',
@@ -94,23 +100,25 @@ const REGIONS = {
     tributeDue: 3,
   },
 
-  // ── Kashka (N. Pontic raiders) ───────────────────────────
+  // ── Kashka (N. Black Sea raiders) ───────────────────────
+  // Black Sea coast strip N of Hatti. ~43°N 37°E → ref(480, 133)
   kashka: {
     name: 'Kashka', icon: '🗡', isPlayer: false,
-    cx: 298, cy: 105,
-    poly: [[148,125],[200,100],[270,82],[358,74],[438,80],[502,100],[545,122],[540,142],[490,145],[425,142],[355,138],[270,138],[200,140],[148,138]],
+    cx: 480, cy: 133,
+    poly: [[293,107],[427,93],[560,93],[667,133],[653,173],[613,187],[560,160],[453,147],[320,160],[293,160]],
     fillColor: '#221c0c', borderColor: '#7a6822',
-    desc: 'Northern raiders along the Black Sea coast. Constant thorn in the Hittite Empire\'s side. They do not trade — they raid.',
+    desc: 'Northern raiders along the Black Sea coast. Constant thorn in the Hittite Empire's side. They do not trade — they raid.',
     relation: 'hostile',
     exports: {},
     noTrade: true,
   },
 
   // ── Cyprus ───────────────────────────────────────────────
+  // Island. ~35.1°N 33.4°E → ref(384, 344)
   cyprus: {
     name: 'Cyprus (Alashiya)', icon: '⚒', isPlayer: false,
-    cx: 358, cy: 292,
-    poly: [[308,272],[352,262],[394,268],[414,286],[412,308],[384,322],[342,322],[308,308]],
+    cx: 384, cy: 344,
+    poly: [[347,327],[387,327],[413,333],[427,347],[413,360],[360,360],[347,347]],
     fillColor: '#2a1608', borderColor: '#c87030',
     desc: 'The great copper island. Cyprus supplies most of the copper in the Mediterranean world. Without it, there is no bronze.',
     relation: 'friendly',
@@ -122,10 +130,11 @@ const REGIONS = {
   },
 
   // ── Ugarit / Syria ───────────────────────────────────────
+  // N Syrian coast. ~35.6°N 35.8°E → ref(480, 333)
   ugarit: {
     name: 'Ugarit / Syria', icon: '🏺', isPlayer: false,
-    cx: 428, cy: 252,
-    poly: [[378,208],[428,198],[462,210],[480,232],[474,265],[452,285],[422,292],[395,278],[378,258],[375,228]],
+    cx: 480, cy: 333,
+    poly: [[440,293],[533,293],[547,320],[533,347],[493,373],[440,373],[427,347],[440,320]],
     fillColor: '#142a18', borderColor: '#3a8030',
     desc: 'The greatest trading hub of the age. Ugarit connects east and west, north and south. Grain, tin via land routes, fine goods — all pass through here.',
     relation: 'neutral',
@@ -139,10 +148,11 @@ const REGIONS = {
   },
 
   // ── Canaan / Levant ──────────────────────────────────────
+  // Levant coast. ~32.5°N 35.5°E → ref(440, 413)
   canaan: {
     name: 'Canaan', icon: '🌿', isPlayer: false,
-    cx: 415, cy: 335,
-    poly: [[375,280],[422,270],[460,280],[470,310],[464,348],[452,378],[430,392],[408,392],[388,375],[372,348],[370,312]],
+    cx: 440, cy: 413,
+    poly: [[440,373],[493,373],[467,400],[440,427],[413,453],[427,467],[440,453],[427,427],[440,387]],
     fillColor: '#182810', borderColor: '#588030',
     desc: 'Fertile coastal land rich in grain and olive oil. Cities like Megiddo and Ashdod are hubs of local trade.',
     relation: 'neutral',
@@ -154,10 +164,11 @@ const REGIONS = {
   },
 
   // ── Egypt ────────────────────────────────────────────────
+  // Nile Valley + Delta. ~27°N 31.5°E → ref(333, 560)
   egypt: {
     name: 'Egypt', icon: '𓂀', isPlayer: false,
-    cx: 295, cy: 425,
-    poly: [[238,360],[282,350],[340,355],[392,362],[440,382],[452,420],[440,462],[414,500],[378,522],[332,530],[290,518],[250,502],[230,468],[224,428]],
+    cx: 333, cy: 540,
+    poly: [[0,440],[133,413],[160,440],[347,445],[373,467],[387,507],[413,560],[400,613],[427,667],[467,747],[480,800],[0,800]],
     fillColor: '#2e2400', borderColor: '#d4aa20',
     desc: 'The eternal grain basket of the world. Egypt exports enormous quantities of grain and gold. They are diplomatic and prefer trade over war.',
     relation: 'friendly',
@@ -170,10 +181,11 @@ const REGIONS = {
   },
 
   // ── Assyria ──────────────────────────────────────────────
+  // Upper Tigris / Nineveh. ~36.5°N 43°E → ref(640, 307)
   assyria: {
     name: 'Assyria (Assur)', icon: '🦁', isPlayer: false,
-    cx: 518, cy: 215,
-    poly: [[460,152],[506,138],[548,142],[580,162],[592,192],[580,228],[554,252],[518,265],[480,258],[460,235],[446,202]],
+    cx: 640, cy: 307,
+    poly: [[560,280],[667,280],[707,307],[693,347],[653,360],[573,347],[547,320],[547,293]],
     fillColor: '#221408', borderColor: '#c86828',
     desc: 'The great trading empire of the north. Assyrian merchants operate the tin routes from Afghanistan via donkey caravans through Kanesh. Without them, there is no tin.',
     relation: 'neutral',
@@ -186,10 +198,11 @@ const REGIONS = {
   },
 
   // ── Babylon ──────────────────────────────────────────────
+  // S Mesopotamia. ~33°N 45.5°E → ref(720, 400)
   babylon: {
     name: 'Babylon', icon: '🏛', isPlayer: false,
-    cx: 548, cy: 322,
-    poly: [[476,264],[542,250],[582,258],[616,272],[630,302],[624,342],[606,372],[574,394],[538,402],[506,385],[482,355],[470,322],[468,284]],
+    cx: 720, cy: 400,
+    poly: [[667,280],[747,280],[813,320],[853,373],[827,427],[760,467],[667,453],[653,400],[653,360],[693,347],[707,307]],
     fillColor: '#0e1828', borderColor: '#2870b8',
     desc: 'Ancient city of Hammurabi. The heart of Mesopotamia, rich in gold and tin routed from the east. A distant but worthy trading partner.',
     relation: 'neutral',
@@ -201,10 +214,11 @@ const REGIONS = {
   },
 
   // ── Elam / Susa ──────────────────────────────────────────
+  // SW Iran (Khuzestan). ~32°N 49°E → ref(800, 427)
   elam: {
     name: 'Elam (Susa)', icon: '🔶', isPlayer: false,
-    cx: 640, cy: 320,
-    poly: [[602,262],[648,250],[688,255],[720,278],[726,315],[722,355],[702,390],[668,412],[632,416],[600,392],[580,358],[578,320]],
+    cx: 827, cy: 427,
+    poly: [[853,373],[933,373],[987,427],[960,480],[880,493],[787,493],[760,467],[827,427]],
     fillColor: '#1c0e0e', borderColor: '#983828',
     desc: 'Far eastern kingdom at the edge of the known world. Expensive to trade with but holds eastern gold and silver.',
     relation: 'neutral',
@@ -256,17 +270,17 @@ const BASE_PRICES = {
 // ─── CITY LIST (attackable city markers on the map) ─────────
 // x/y are reference coordinates (820×480 space)
 const CITY_LIST = [
-  { id:'hattusa',  label:'HATTUSA',  x:352, y:132, region:'hatti'    },
-  { id:'nineveh',  label:'NINEVEH',  x:542, y:192, region:'assyria'  },
-  { id:'babylon',  label:'BABYLON',  x:552, y:305, region:'babylon'  },
-  { id:'thebes',   label:'THEBES',   x:300, y:462, region:'egypt'    },
-  { id:'ugarit',   label:'UGARIT',   x:390, y:240, region:'ugarit'   },
-  { id:'mycenae',  label:'MYCENAE',  x:68,  y:270, region:'mycenae'  },
-  { id:'knossos',  label:'KNOSSOS',  x:128, y:310, region:'crete'    },
-  { id:'susa',     label:'SUSA',     x:640, y:308, region:'elam'     },
-  { id:'enkomi',   label:'ENKOMI',   x:358, y:285, region:'cyprus'   },
-  { id:'ashdod',   label:'ASHDOD',   x:370, y:325, region:'canaan'   },
-  { id:'apasa',    label:'APASA',    x:178, y:272, region:'arzawa'   },
+  { id:'hattusa',  label:'HATTUSA',  x:417, y:213, region:'hatti'    },
+  { id:'nineveh',  label:'NINEVEH',  x:644, y:310, region:'assyria'  },
+  { id:'babylon',  label:'BABYLON',  x:678, y:412, region:'babylon'  },
+  { id:'thebes',   label:'THEBES',   x:364, y:594, region:'egypt'    },
+  { id:'ugarit',   label:'UGARIT',   x:448, y:330, region:'ugarit'   },
+  { id:'mycenae',  label:'MYCENAE',  x:100, y:274, region:'mycenae'  },
+  { id:'knossos',  label:'KNOSSOS',  x:164, y:339, region:'crete'    },
+  { id:'susa',     label:'SUSA',     x:780, y:422, region:'elam'     },
+  { id:'enkomi',   label:'ENKOMI',   x:389, y:344, region:'cyprus'   },
+  { id:'ashdod',   label:'ASHDOD',   x:416, y:432, region:'canaan'   },
+  { id:'apasa',    label:'APASA',    x:221, y:280, region:'arzawa'   },
 ];
 
 // ─── HISTORICAL EVENTS ──────────────────────────────────────
@@ -890,10 +904,7 @@ let hoveredRegion    = null;
 let selectedRegionId = null;
 let armySelected     = false;  // true when player clicked their army pawn
 
-// Historical map background image (map.jpg placed next to index.html)
-const mapBg = new Image();
-mapBg.src = 'map.jpg';
-mapBg.onload = () => { if (canvas.width > 0) drawMap(); };
+
 
 function resizeCanvas() {
   const container = document.getElementById('map-area');
@@ -908,36 +919,94 @@ function sp(x, y) {
   return [x * scaleX, y * scaleY];
 }
 
+// ─── PROCEDURAL LAND/SEA MAP ─────────────────────────────────
+// Draws a geographic background map. Coordinates are in REF space
+// (1200×800) matching the equirectangular projection:
+//   x = (lon − 19) / 45 * 1200   y = (48 − lat) / 30 * 800
+function drawLandMasses() {
+  const s = Math.min(scaleX, scaleY);
+  const LAND = '#c4ad78';
+  const SEA  = '#1a3550';
+  const COAST = '#8a7240';
+
+  // Sea fill
+  ctx.fillStyle = SEA;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  function poly(pts, fill, stroke) {
+    const [x0, y0] = sp(pts[0][0], pts[0][1]);
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    for (let i = 1; i < pts.length; i++) {
+      const [px, py] = sp(pts[i][0], pts[i][1]);
+      ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    if (fill)   { ctx.fillStyle = fill;     ctx.fill();   }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 0.8 * s; ctx.stroke(); }
+  }
+
+  // ── Europe + Greek peninsula ───────────────────────────────
+  poly([[0,0],[200,0],[213,107],[213,173],[147,200],[133,213],[107,253],
+        [107,280],[93,307],[67,320],[40,280],[27,253],[40,213],[0,213]],
+       LAND, COAST);
+
+  // ── Anatolia (Turkey) ─────────────────────────────────────
+  poly([[267,173],[427,93],[614,93],[653,133],[653,173],[560,187],[507,200],
+        [453,213],[440,267],[440,320],[373,320],[320,320],[267,320],[240,307],
+        [213,280],[213,253],[213,200],[267,173]],
+       LAND, COAST);
+
+  // ── Eastern land mass: Syria + Arabia + Iraq + Iran + N Africa ──
+  // (all connected via Sinai peninsula; seas punched back below)
+  poly([[453,320],[440,387],[413,453],[347,467],[267,440],[133,413],
+        [0,440],[0,800],[1200,800],[1200,107],[987,160],[854,173],[694,133],
+        [653,173],[613,227],[560,280],[507,280],[453,320]],
+       LAND, COAST);
+
+  // ── Islands ───────────────────────────────────────────────
+  poly([[120,327],[147,327],[173,333],[200,331],[219,341],[187,349],[147,349],[120,344]],
+       LAND, COAST);  // Crete
+  poly([[347,327],[387,327],[413,333],[427,347],[413,360],[360,360],[347,347]],
+       LAND, COAST);  // Cyprus
+
+  // ── Punch sea areas back over land ────────────────────────
+  // Black Sea
+  poly([[227,160],[240,120],[373,107],[507,93],[600,120],[627,160],
+        [573,173],[480,187],[347,187],[280,173],[227,173]], SEA);
+  // Caspian Sea
+  poly([[827,27],[920,27],[933,107],[907,187],[920,253],[840,293],
+        [800,267],[813,213],[867,160]], SEA);
+  // Red Sea (narrow wedge)
+  poly([[360,480],[413,493],[440,547],[480,613],[493,667],[520,733],
+        [520,800],[480,800],[467,747],[453,680],[453,613],[427,560],
+        [400,507],[360,480]], SEA);
+  // Persian Gulf
+  poly([[747,480],[827,480],[907,533],[1000,573],[1013,613],[1000,640],
+        [960,587],[880,533],[787,493],[747,480]], SEA);
+
+  // ── Subtle vignette ───────────────────────────────────────
+  const vig = ctx.createRadialGradient(
+    canvas.width*0.5, canvas.height*0.5, canvas.height*0.25,
+    canvas.width*0.5, canvas.height*0.5, canvas.width*0.75);
+  vig.addColorStop(0,   'rgba(0,0,0,0)');
+  vig.addColorStop(0.75,'rgba(0,0,0,0)');
+  vig.addColorStop(1,   'rgba(0,0,0,0.5)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
 function drawMap() {
   const w = canvas.width, h = canvas.height;
   const s = Math.min(scaleX, scaleY);
 
-  // ── 1. Background ─────────────────────────────────────────
-  if (mapBg.complete && mapBg.naturalWidth > 0) {
-    // Draw historical map image stretched to fill the canvas
-    ctx.drawImage(mapBg, 0, 0, w, h);
-    // Darken slightly so game overlays read better
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.fillRect(0, 0, w, h);
-  } else {
-    // Fallback gradient while image loads (or if map.jpg is missing)
-    const seaGrad = ctx.createLinearGradient(0, 0, w, h);
-    seaGrad.addColorStop(0,   '#0a1e32');
-    seaGrad.addColorStop(0.35,'#102840');
-    seaGrad.addColorStop(0.6, '#0d2238');
-    seaGrad.addColorStop(1,   '#071420');
-    ctx.fillStyle = seaGrad;
-    ctx.fillRect(0, 0, w, h);
-  }
+  // ── 1. Background — programmatic geographic map ───────────
+  drawLandMasses();
 
   // ── 2. Regions ────────────────────────────────────────────
   Object.entries(REGIONS).forEach(([id, region]) => drawRegion(id, region));
 
-  // ── 3. Rivers & mountains (only when no bg image — real map shows them) ──
-  if (!(mapBg.complete && mapBg.naturalWidth > 0)) {
-    drawRivers();
-    drawMountains();
-  }
+
 
   // ── 5. Sea labels ─────────────────────────────────────────
   ctx.save();
@@ -945,12 +1014,12 @@ function drawMap() {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const seaLabels = [
-    { text:'BLACK SEA',         x:338, y:47  },
-    { text:'CASPIAN SEA',       x:675, y:72  },
-    { text:'AEGEAN SEA',        x:122, y:262 },
-    { text:'MEDITERRANEAN SEA', x:215, y:382 },
-    { text:'RED SEA',           x:292, y:455 },
-    { text:'PERSIAN GULF',      x:610, y:448 },
+    { text:'BLACK SEA',         x:400, y:133 },
+    { text:'CASPIAN SEA',       x:880, y:160 },
+    { text:'AEGEAN SEA',        x:147, y:253 },
+    { text:'MEDITERRANEAN SEA', x:240, y:360 },
+    { text:'RED SEA',           x:440, y:613 },
+    { text:'PERSIAN GULF',      x:880, y:533 },
   ];
   seaLabels.forEach(l => {
     const [x, y] = sp(l.x, l.y);
@@ -1027,7 +1096,7 @@ function drawMap() {
   ctx.restore();
 
   // ── 8. Army pawn at Troy ──────────────────────────────────
-  const [pawX, pawY] = sp(168, 218);  // slightly offset from Troy center
+  const [pawX, pawY] = sp(210, 200);  // slightly offset from Troy center
   const pawR = 9 * s;
   ctx.save();
   if (armySelected) {
@@ -1316,10 +1385,8 @@ function drawRegion(id, region) {
   if (destroyed)      fillColor = '#160e0e';
   else if (hov)       fillColor = lighten(region.fillColor, 0.38);
   else if (sel)       fillColor = lighten(region.fillColor, 0.22);
-  // When the historical map image is loaded, use semi-transparent fills so
-  // the terrain texture shows through; otherwise keep solid fills.
-  const usingMapBg = mapBg.complete && mapBg.naturalWidth > 0;
-  ctx.globalAlpha = usingMapBg ? (hov || sel ? 0.55 : 0.38) : 1.0;
+  // Semi-transparent on hover/select so land texture shows through, solid otherwise
+  ctx.globalAlpha = (hov || sel) ? 0.75 : 0.88;
   ctx.fillStyle = fillColor;
   ctx.fill();
   ctx.globalAlpha = 1.0;
@@ -1482,8 +1549,8 @@ canvas.addEventListener('click', e => {
   const px = e.clientX - rect.left;
   const py = e.clientY - rect.top;
 
-  // Check click on army pawn (ref: 168,218)
-  const [pawX, pawY] = sp(168, 218);
+  // Check click on army pawn (ref: 210,200)
+  const [pawX, pawY] = sp(210, 200);
   const s = Math.min(scaleX, scaleY);
   if (Math.hypot(px - pawX, py - pawY) <= 11 * s) {
     armySelected = !armySelected;
