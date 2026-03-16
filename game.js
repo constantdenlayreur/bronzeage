@@ -439,7 +439,8 @@ const G = {
   population: 100,
   walls: 3,          // 1-5
   maxWalls: 5,
-  garrison: 15,
+  militia:  10,  // citizen levies — cheap, weaker in battle
+  infantry:  5,  // professional soldiers — needs bronze, fights at 1.6× strength
   vassalOfHatti: true,
   tributeDoubleThisTurn: false,
   cavalryBonus: 0,  // elite bonus from trained cavalry (max 3)
@@ -512,28 +513,46 @@ function popGrainConsumption() {
   return Math.max(1, Math.ceil((G.population / 100) * 3));
 }
 
-// Gold upkeep: 1 gold per 5 soldiers (equipment, pay)
-function garrisonGoldCost() {
-  return Math.floor(G.garrison / 5);
+// Headcount and weighted combat strength
+function getTotalGarrison() { return G.militia + G.infantry; }
+function getGarrisonStrength() {
+  // Infantry count as 1.6× — bronze arms & armour
+  return G.militia * 1.0 + Math.round(G.infantry * 1.6);
 }
 
-// Grain upkeep: 1 grain per 8 soldiers (rations)
+// Gold upkeep: militia cheaper (less equipment), infantry costlier
+function garrisonGoldCost() {
+  return Math.floor(G.militia / 6) + Math.floor(G.infantry / 4);
+}
+
+// Grain upkeep: all soldiers eat
 function garrisonGrainCost() {
-  return Math.floor(G.garrison / 8);
+  return Math.floor(G.militia / 8) + Math.floor(G.infantry / 6);
+}
+
+// Apply proportional losses — militia take heavier casualties (less armour)
+function applyGarrisonLoss(frac) {
+  const mLoss = Math.min(G.militia,  Math.round(G.militia  * frac * 1.25));
+  const iLoss = Math.min(G.infantry, Math.round(G.infantry * frac * 0.75));
+  G.militia  = Math.max(0, G.militia  - mLoss);
+  G.infantry = Math.max(0, G.infantry - iLoss);
+  return mLoss + iLoss;
 }
 
 function feedGarrison() {
   const need = garrisonGrainCost();
   if (need === 0) return;
-  if (G.res.grain >= need) {
-    G.res.grain -= need;
-  } else {
-    const deficit  = need - G.res.grain;
-    G.res.grain    = 0;
-    const deserted = Math.min(G.garrison, deficit * 5);
-    G.garrison     = Math.max(0, G.garrison - deserted);
-    G.addLog(`⚠ Garrison underfed — ${deserted} warriors desert.`, 'log-crisis');
-  }
+  if (G.res.grain >= need) { G.res.grain -= need; return; }
+  const deficit   = need - G.res.grain;
+  G.res.grain     = 0;
+  // Militia desert first — less loyal, no professional bond
+  const mDesertion = Math.min(G.militia, deficit * 4);
+  G.militia        = Math.max(0, G.militia - mDesertion);
+  const remaining  = Math.max(0, deficit - Math.ceil(mDesertion / 4));
+  const iDesertion = Math.min(G.infantry, remaining * 3);
+  G.infantry       = Math.max(0, G.infantry - iDesertion);
+  const total = mDesertion + iDesertion;
+  if (total > 0) G.addLog(`⚠ Garrison underfed — ${total} warriors desert.`, 'log-crisis');
 }
 
 // ─── CRAFTING (Bronze from Copper + Tin) ────────────────────
@@ -598,19 +617,15 @@ function feedPopulation() {
 
 // ─── SIEGE RESOLUTION ────────────────────────────────────────
 function resolveSiege(attackStrength) {
-  const defense = G.garrison + G.walls * 8;
+  const defense = getGarrisonStrength() + G.walls * 8;
   if (defense >= attackStrength) {
-    // Troy holds!
-    const garrisonLoss = Math.floor(G.garrison * 0.3);
-    G.garrison -= garrisonLoss;
-    G.addLog(`Troy HELD the siege! Garrison lost ${garrisonLoss} warriors.`, 'log-good');
+    const lost = applyGarrisonLoss(0.3);
+    G.addLog(`Troy HELD the siege! Garrison lost ${lost} warriors.`, 'log-good');
     return true;
   } else {
-    // Partially breached
     G.walls = Math.max(0, G.walls - 1);
-    const garrisonLoss = Math.floor(G.garrison * 0.5);
-    G.garrison -= garrisonLoss;
-    G.addLog(`Troy's walls were breached! Walls −1, garrison lost ${garrisonLoss}.`, 'log-crisis');
+    const lost = applyGarrisonLoss(0.5);
+    G.addLog(`Troy's walls were breached! Walls −1, garrison lost ${lost}.`, 'log-crisis');
     if (G.walls === 0) {
       endGame(false, 'Troy has fallen. The walls are broken and the city is sacked. History will remember this as the end of an age.');
     }
@@ -1653,17 +1668,22 @@ function renderCityStats() {
   }
   document.getElementById('val-walls').textContent  = `${G.walls}/${G.maxWalls}`;
 
-  // Garrison bar
-  const armyPct = Math.min(100, (G.garrison / 50) * 100);
-  document.getElementById('bar-army').style.width  = armyPct + '%';
-  document.getElementById('val-army').textContent  = G.garrison;
+  // Militia bar
+  const militiaPct = Math.min(100, (G.militia / 40) * 100);
+  document.getElementById('bar-militia').style.width = militiaPct + '%';
+  document.getElementById('val-militia').textContent = G.militia;
+
+  // Infantry bar
+  const infantryPct = Math.min(100, (G.infantry / 30) * 100);
+  document.getElementById('bar-infantry').style.width = infantryPct + '%';
+  document.getElementById('val-infantry').textContent = G.infantry;
 
   // Upkeep breakdown
   const goldUp  = garrisonGoldCost();
   const grainUp = garrisonGrainCost();
   const upkeepEl = document.getElementById('garrison-upkeep');
   if (upkeepEl) {
-    upkeepEl.textContent = `Upkeep: ◎${goldUp}/yr  🌾${grainUp}/yr`;
+    upkeepEl.textContent = `Upkeep: ◎${goldUp}/yr  🌾${grainUp}/yr  · Strength: ${getGarrisonStrength()}`;
     upkeepEl.style.color = grainUp > getTroyProduction().grain - popGrainConsumption() ? '#c05030' : '#6a5020';
   }
 
@@ -1743,51 +1763,77 @@ function renderActions() {
       enabled: canCraft(3),
       fn: () => { craftBronze(3); renderAll(); }
     },
-    // ── Garrison ─────────────────────────────────────────────
-    { type: 'header', label: `⚔ Garrison  (upkeep: ◎${garrisonGoldCost()}/yr  🌾${garrisonGrainCost()}/yr)` },
+    // ── Militia (cheap; grain + gold only) ───────────────────
+    { type: 'header', label: `👥 Militia  ×${G.militia}  — upkeep ◎${Math.floor(G.militia/6)}/yr 🌾${Math.floor(G.militia/8)}/yr` },
     {
-      id: 'recruit5',
-      label: `⚔ Recruit Warriors +5`,
+      id: 'recruit-militia-5',
+      label: `👥 Levy Militia +5`,
       cost: `🌾2 ◎1`,
       enabled: r.grain >= 2 && r.gold >= 1,
       fn: () => {
         r.grain -= 2; r.gold -= 1;
-        G.garrison += 5;
-        G.addLog('Recruited 5 warriors for the garrison.', 'log-good');
+        G.militia += 5;
+        G.addLog('Levied 5 militia. Cheap but lightly armed.', 'log-good');
         renderAll();
       }
     },
     {
-      id: 'recruit10',
-      label: `⚔ Recruit Warriors +10`,
+      id: 'recruit-militia-10',
+      label: `👥 Levy Militia +10`,
       cost: `🌾4 ◎2`,
       enabled: r.grain >= 4 && r.gold >= 2,
       fn: () => {
         r.grain -= 4; r.gold -= 2;
-        G.garrison += 10;
-        G.addLog('Recruited 10 warriors for the garrison.', 'log-good');
+        G.militia += 10;
+        G.addLog('Levied 10 militia.', 'log-good');
         renderAll();
       }
     },
     {
-      id: 'disband5',
-      label: `🏚 Disband Warriors −5`,
+      id: 'disband-militia-5',
+      label: `🏚 Disband Militia −5`,
       cost: `saves ◎1 🌾1/yr`,
-      enabled: G.garrison >= 5,
+      enabled: G.militia >= 5,
       fn: () => {
-        G.garrison -= 5;
-        G.addLog('Disbanded 5 warriors. Garrison reduced — upkeep falls.', 'log-event');
+        G.militia -= 5;
+        G.addLog('Disbanded 5 militia. Upkeep reduced.', 'log-event');
+        renderAll();
+      }
+    },
+    // ── Infantry (bronze-equipped; 1.6× combat strength) ─────
+    { type: 'header', label: `⚔ Infantry  ×${G.infantry}  — upkeep ◎${Math.floor(G.infantry/4)}/yr 🌾${Math.floor(G.infantry/6)}/yr` },
+    {
+      id: 'recruit-inf-5',
+      label: `⚔ Equip Infantry +5`,
+      cost: `🌾2 ◎2 ⚙1`,
+      enabled: r.grain >= 2 && r.gold >= 2 && r.bronze >= 1,
+      fn: () => {
+        r.grain -= 2; r.gold -= 2; r.bronze -= 1;
+        G.infantry += 5;
+        G.addLog('Equipped 5 infantry with bronze arms. Combat strength +8.', 'log-good');
         renderAll();
       }
     },
     {
-      id: 'disband10',
-      label: `🏚 Disband Warriors −10`,
-      cost: `saves ◎2 🌾1/yr`,
-      enabled: G.garrison >= 10,
+      id: 'recruit-inf-10',
+      label: `⚔ Equip Infantry +10`,
+      cost: `🌾3 ◎3 ⚙2`,
+      enabled: r.grain >= 3 && r.gold >= 3 && r.bronze >= 2,
       fn: () => {
-        G.garrison -= 10;
-        G.addLog('Disbanded 10 warriors. Garrison reduced — upkeep falls.', 'log-event');
+        r.grain -= 3; r.gold -= 3; r.bronze -= 2;
+        G.infantry += 10;
+        G.addLog('Equipped 10 infantry. Combat strength +16.', 'log-good');
+        renderAll();
+      }
+    },
+    {
+      id: 'disband-inf-5',
+      label: `🏚 Disband Infantry −5`,
+      cost: `saves ◎1 🌾1/yr`,
+      enabled: G.infantry >= 5,
+      fn: () => {
+        G.infantry -= 5;
+        G.addLog('Disbanded 5 infantry. Upkeep reduced.', 'log-event');
         renderAll();
       }
     },
@@ -1812,8 +1858,8 @@ function renderActions() {
       enabled: r.silver >= 5,
       fn: () => {
         r.silver -= 5;
-        G.garrison += 8;
-        G.addLog('Hired mercenaries. +8 garrison.', 'log-good');
+        G.militia += 8;
+        G.addLog('Hired mercenaries (+8 militia).', 'log-good');
         renderAll();
       }
     },
@@ -2406,9 +2452,9 @@ function simulateBattle(config) {
   const typeMultiplier = { siege: 1.25, invasion: 1.1, raid: 0.8 }[config.type] || 1.0;
   const atkSize = Math.round(config.baseSize * (0.8 + Math.random() * 0.4));
 
-  const moraleMult = G.population > 70 ? 1.12 : G.population > 40 ? 1.0 : 0.82;
+  const moraleMult    = G.population > 70 ? 1.12 : G.population > 40 ? 1.0 : 0.82;
   const allianceBonus = getAllianceBonus();
-  const defBase = (G.garrison + allianceBonus) * (1 + G.walls * 0.28) * moraleMult + G.cavalryBonus * 5;
+  const defBase       = (getGarrisonStrength() + allianceBonus) * (1 + G.walls * 0.28) * moraleMult + G.cavalryBonus * 5;
 
   const atkBase = atkSize * typeMultiplier;
 
@@ -2427,7 +2473,7 @@ function simulateBattle(config) {
     const atkRoll = atkBase * (0.55 + Math.random() * 0.9);
     const defRoll = defBase * (0.60 + Math.random() * 0.8);
     const atkCas  = Math.floor(atkSize * (0.04 + Math.random() * 0.08));
-    const defCas  = Math.floor(G.garrison * (0.03 + Math.random() * 0.07));
+    const defCas  = Math.floor(getTotalGarrison() * (0.03 + Math.random() * 0.07));
     atkTotalRolls += atkRoll;
     defTotalRolls += defRoll;
     atkTotalCas   += atkCas;
@@ -2449,8 +2495,7 @@ function simulateBattle(config) {
 function applyBattleResult(result) {
   const { outcome, defTotalCas, atkTotalCas, config } = result;
   if (outcome === 'sack') {
-    const garLoss = Math.floor(G.garrison * 0.60);
-    G.garrison   = Math.max(0, G.garrison - garLoss);
+    applyGarrisonLoss(0.60);
     G.walls      = Math.max(0, G.walls - 2);
     G.population = Math.max(0, Math.floor(G.population * 0.80));
     G.res.grain  = Math.max(0, Math.floor(G.res.grain * 0.50));
@@ -2459,19 +2504,20 @@ function applyBattleResult(result) {
       endGame(false, `Troy has been sacked and its walls thrown down. The city burns. The Bronze Age claims one more victim.`);
     }
   } else if (outcome === 'defeat') {
-    G.garrison   = Math.max(0, G.garrison - Math.floor(G.garrison * 0.40));
+    applyGarrisonLoss(0.40);
     G.walls      = Math.max(0, G.walls - 1);
     G.population = Math.max(0, Math.floor(G.population * 0.90));
     G.res.grain  = Math.max(0, Math.floor(G.res.grain * 0.75));
     G.addLog(`⚠ Defeated by ${config.attacker}. Heavy losses sustained.`, 'log-crisis');
   } else if (outcome === 'pyrrhic') {
-    G.garrison   = Math.max(0, G.garrison - Math.floor(G.garrison * 0.20));
+    applyGarrisonLoss(0.20);
     G.population = Math.max(0, Math.floor(G.population * 0.95));
     G.addLog(`⚔ ${config.attacker} repelled — but at great cost.`, 'log-event');
   } else if (outcome === 'victory') {
-    G.garrison   = Math.max(0, G.garrison - Math.floor(G.garrison * 0.05));
+    applyGarrisonLoss(0.05);
     G.addLog(`✓ ${config.attacker} driven back. Troy holds!`, 'log-good');
   } else {
+    applyGarrisonLoss(0.02);
     G.addLog(`🏆 ${config.attacker} crushed decisively. Troy's glory grows!`, 'log-good');
   }
 
@@ -2500,7 +2546,7 @@ function showBattleModal(result, onDone) {
   document.getElementById('bmod-atk-name').textContent = config.attacker;
   document.getElementById('bmod-atk-size').textContent = `Army: ${atkSize}`;
   document.getElementById('bmod-atk-power').textContent = `Power: ${Math.round(atkTotalRolls)}`;
-  document.getElementById('bmod-def-size').textContent  = `Garrison: ${G.garrison}`;
+  document.getElementById('bmod-def-size').textContent  = `Militia: ${G.militia}  Infantry: ${G.infantry}  (str: ${getGarrisonStrength()})`;
   document.getElementById('bmod-def-power').textContent = `Power: ${Math.round(defTotalRolls)}`;
   document.getElementById('bmod-def-walls').textContent = `🏰 Walls ×${(1 + G.walls * 0.28).toFixed(2)}`;
 
@@ -2552,7 +2598,7 @@ function showBattleModal(result, onDone) {
 function checkVictory() {
   if (G.turn > G.maxTurns) {
     if (G.population > 20 && G.walls >= 1) {
-      const score = G.population + G.walls * 10 + G.garrison + G.res.bronze * 2 + G.res.gold;
+      const score = G.population + G.walls * 10 + getTotalGarrison() + G.res.bronze * 2 + G.res.gold;
       endGame(true, `Troy has endured 100 years of catastrophe. As other great cities fell to fire and famine, Wilusa stood firm. The Bronze Age has ended — but your city breathes on into the new age. Poets will one day sing of Troy not for its fall, but for its endurance.`, score);
     } else {
       endGame(false, `Troy survived, but barely. Your walls crumble, your people are few. The dark age descends. History will remember Troy as a city that fell with the age that made it.`);
