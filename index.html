@@ -17,17 +17,16 @@
     <div class="intro-divider"></div>
     <p class="intro-text">
       You are the ruler of <strong>Wilusa</strong> — what history will call Troy.<br>
-      Your city guards the Hellespont, the narrow strait between seas,<br>
-      collecting tolls and growing rich on trade.<br><br>
-      You are a vassal of the mighty <strong>Hittite Empire</strong>. You owe them tribute in bronze.<br>
-      The world seems stable. But across the sea, something stirs.<br><br>
-      <em>Survive 100 years. Do not let Troy fall.</em>
+      Your dynasty guards the Hellespont, collecting tolls and growing rich on trade.<br><br>
+      Keep yourself in power. Keep your people fed. Keep your walls standing.<br>
+      The world order is about to collapse — and Troy must endure.<br><br>
+      <em>Survive the Bronze Age Collapse. Keep the dynasty alive.</em>
     </p>
     <div class="intro-stats">
-      <div class="stat-item"><span class="stat-icon">🌾</span><span>Grain</span><span class="stat-desc">Feed your people</span></div>
-      <div class="stat-item"><span class="stat-icon">⚒</span><span>Copper</span><span class="stat-desc">From Cyprus</span></div>
-      <div class="stat-item"><span class="stat-icon">🔩</span><span>Tin</span><span class="stat-desc">From Afghanistan via Assyria</span></div>
-      <div class="stat-item"><span class="stat-icon">⚙</span><span>Bronze</span><span class="stat-desc">Craft from Copper + Tin</span></div>
+      <div class="stat-item"><span class="stat-icon">👥</span><span>Population</span><span class="stat-desc">10,000 people in units of 100</span></div>
+      <div class="stat-item"><span class="stat-icon">⚖</span><span>Factions</span><span class="stat-desc">City · Military · Palatial</span></div>
+      <div class="stat-item"><span class="stat-icon">☀</span><span>Seasons</span><span class="stat-desc">Summer feeds the city · Winter tests it</span></div>
+      <div class="stat-item"><span class="stat-icon">📜</span><span>Diplomacy</span><span class="stat-desc">Letters from kings arrive each season</span></div>
     </div>
     <button id="begin-btn">Begin Your Reign</button>
   </div>
@@ -35,139 +34,150 @@
 
 <!-- ===== GAME SCREEN ===== -->
 <div id="game-screen" style="display:none">
+  <div id="game-layout">
 
-  <!-- Top bar -->
-  <div id="top-bar">
-    <div id="title-block">
-      <span class="city-name">⚔ WILUSA</span>
-      <span class="vassal-status" id="vassal-status">Vassal of Hatti</span>
-    </div>
-    <div id="resources-bar">
-      <div class="res-item" title="Grain stored — feeds population and army">
-        <span class="res-icon">🌾</span>
-        <span id="r-grain">20</span>
-        <span class="res-rate" id="rr-grain">+4</span>
-      </div>
-      <div class="res-item" title="Copper — primary bronze component, from Cyprus">
-        <span class="res-icon">⚒</span>
-        <span id="r-copper">8</span>
-        <span class="res-rate" id="rr-copper">+0</span>
-      </div>
-      <div class="res-item" title="Tin — scarce alloy, from Afghan routes via Assyria">
-        <span class="res-icon">🔩</span>
-        <span id="r-tin">4</span>
-        <span class="res-rate" id="rr-tin">+0</span>
-      </div>
-      <div class="res-item" title="Bronze — crafted (2 Copper + 1 Tin), used for tribute and weapons">
-        <span class="res-icon">⚙</span>
-        <span id="r-bronze">6</span>
-        <span class="res-rate" id="rr-bronze">+0</span>
-      </div>
-      <div class="res-item" title="Gold — trade currency from Hellespont tolls">
-        <span class="res-icon">◎</span>
-        <span id="r-gold">20</span>
-        <span class="res-rate" id="rr-gold">+5</span>
-      </div>
-    </div>
-    <div id="time-block">
-      <div id="year-label">1250 BC</div>
-      <div id="turn-label">Year 1 of 15</div>
-    </div>
-    <button id="diplo-btn">🤝 Diplomacy</button>
-    <button id="next-turn-btn">End Year ▶</button>
-  </div>
+    <!-- ═══ LEFT: CITY PANEL ═══ -->
+    <div id="city-panel">
 
-  <!-- Main layout -->
-  <div id="main-layout">
-
-    <!-- Map area -->
-    <div id="map-area">
-      <canvas id="map-canvas"></canvas>
-      <div id="map-tooltip"></div>
-      <div id="phase-banner"></div>
-    </div>
-
-    <!-- Right panel -->
-    <div id="right-panel">
-
-      <!-- City status -->
-      <div id="city-panel">
-        <div class="panel-header">🏛 TROY — CITY STATUS</div>
-        <div id="city-stats">
-          <div class="city-stat">
-            <span class="cstat-label">👥 Population</span>
-            <div class="cstat-bar-wrap"><div class="cstat-bar" id="bar-pop"></div></div>
-            <span class="cstat-val" id="val-pop">100</span>
+      <!-- Dynasty / Season bar -->
+      <div id="dynasty-bar">
+        <div id="dynasty-top">
+          <div id="season-block">
+            <span id="season-icon">☀</span>
+            <span id="season-label">Summer</span>
           </div>
-          <div class="city-stat">
-            <span class="cstat-label">🏰 Walls</span>
-            <div class="wall-pips" id="wall-pips"></div>
-            <span class="cstat-val" id="val-walls">3/5</span>
-          </div>
-          <div class="city-stat">
-            <span class="cstat-label">👥 Militia</span>
-            <div class="cstat-bar-wrap"><div class="cstat-bar bar-militia" id="bar-militia"></div></div>
-            <span class="cstat-val" id="val-militia">10</span>
-          </div>
-          <div class="city-stat">
-            <span class="cstat-label">⚔ Infantry</span>
-            <div class="cstat-bar-wrap"><div class="cstat-bar bar-infantry" id="bar-infantry"></div></div>
-            <span class="cstat-val" id="val-infantry">5</span>
-          </div>
-          <div class="city-stat">
-            <span class="cstat-label">🐎 Chariots</span>
-            <div class="cstat-bar-wrap"><div class="cstat-bar bar-chariots" id="bar-chariots"></div></div>
-            <span class="cstat-val" id="val-chariots">0/5</span>
-          </div>
-          <div class="city-stat">
-            <span class="cstat-label">⚖ Stability</span>
-            <div class="cstat-bar-wrap"><div class="cstat-bar" id="bar-stability"></div></div>
-            <span class="cstat-val" id="val-stability" style="font-size:0.72em">75 — Steady</span>
+          <div id="ruler-block">
+            <span id="ruler-name">Priam</span>
+            <span id="vassal-status">Vassal of Hatti</span>
           </div>
         </div>
-        <div id="garrison-upkeep" class="city-substat">Upkeep: ◎3/yr  🌾1/yr</div>
-        <div id="production-summary" class="city-substat">City: no upgrades</div>
-        <div class="panel-header" style="margin-top:8px">⚡ ACTIONS</div>
-        <div id="action-list">
-          <!-- filled by JS -->
+        <div id="legit-row">
+          <span class="legit-label">Legitimacy</span>
+          <div class="legit-bar-wrap">
+            <div id="legit-bar" class="legit-bar"></div>
+          </div>
+          <span id="ruler-legitimacy">70</span>
         </div>
       </div>
 
-      <!-- Trade / region info -->
-      <div id="trade-panel">
-        <div class="panel-header">🗺 REGION INFO</div>
-        <div id="trade-content">
-          <p class="hint">Click a region on the map to trade or gather information.</p>
+      <!-- Population section -->
+      <div class="c-section">
+        <div class="c-section-header">
+          <span>👥 POPULATION</span>
+          <span id="pop-total" class="section-total">100 units · 10,000 people</span>
+        </div>
+        <div id="pop-classes"><!-- filled by JS --></div>
+      </div>
+
+      <!-- Factions section -->
+      <div class="c-section">
+        <div class="c-section-header">⚖ FACTIONS</div>
+        <div id="factions-list"><!-- filled by JS --></div>
+      </div>
+
+      <!-- Buildings section -->
+      <div class="c-section">
+        <div class="c-section-header">🏗 BUILDINGS</div>
+        <div id="buildings-list"><!-- filled by JS --></div>
+      </div>
+
+      <!-- Policy section -->
+      <div class="c-section">
+        <div class="c-section-header">📜 POLICY</div>
+        <div id="policy-content"><!-- filled by JS --></div>
+      </div>
+
+      <!-- Actions section -->
+      <div class="c-section">
+        <div class="c-section-header">⚡ ACTIONS</div>
+        <div id="action-list"><!-- filled by JS --></div>
+      </div>
+
+    </div><!-- end city-panel -->
+
+    <!-- ═══ RIGHT: WORLD PANEL ═══ -->
+    <div id="world-panel">
+
+      <!-- Top bar: resources + time + buttons -->
+      <div id="top-bar">
+        <div id="resources-bar">
+          <div class="res-item" title="Grain stored">
+            <span class="res-icon">🌾</span>
+            <span id="r-grain">0</span>
+          </div>
+          <div class="res-item" title="Copper">
+            <span class="res-icon">⚒</span>
+            <span id="r-copper">0</span>
+          </div>
+          <div class="res-item" title="Tin">
+            <span class="res-icon">🔩</span>
+            <span id="r-tin">0</span>
+          </div>
+          <div class="res-item" title="Bronze">
+            <span class="res-icon">⚙</span>
+            <span id="r-bronze">0</span>
+          </div>
+          <div class="res-item" title="Gold">
+            <span class="res-icon">◎</span>
+            <span id="r-gold">0</span>
+          </div>
+          <div class="res-item" title="Silver">
+            <span class="res-icon">🥈</span>
+            <span id="r-silver">0</span>
+          </div>
+          <div class="res-sep"></div>
+          <div class="res-item" title="Trade disruption level — increases trade costs">
+            <span class="res-icon">⚡</span>
+            <span>Disruption:</span>
+            <span id="disruption-val">0.0</span>
+          </div>
+        </div>
+        <div id="time-block">
+          <div id="year-label">1250 BC</div>
+          <div id="turn-label">Turn 1 of 30</div>
+        </div>
+        <div id="top-btns">
+          <button id="letters-btn" title="Open diplomatic letters">📜 Letters <span id="letter-badge" class="badge" style="display:none">0</span></button>
+          <button id="diplo-btn">🤝 Diplomacy</button>
+          <button id="next-turn-btn">End Summer ▶</button>
         </div>
       </div>
 
-    </div>
-  </div>
+      <!-- Map area (takes available vertical space) -->
+      <div id="map-area">
+        <canvas id="map-canvas"></canvas>
+        <div id="map-tooltip"></div>
+        <div id="phase-banner"></div>
+      </div>
 
-  <!-- Bottom: market + log -->
-  <div id="bottom-bar">
-    <div id="market-panel">
-      <div class="bottom-tabs">
-        <div class="bottom-tab active" data-group="market" data-target="market-prices">⚖ MARKET</div>
-        <div class="bottom-tab" data-group="market" data-target="price-chart-panel">📈 CHART</div>
+      <!-- Bottom strip: log + region info -->
+      <div id="world-bottom">
+        <div id="log-panel">
+          <div class="panel-header">📜 CHRONICLES</div>
+          <div id="log-entries"></div>
+        </div>
+        <div id="region-panel">
+          <div class="panel-header">🗺 REGION INFO</div>
+          <div id="trade-content">
+            <p class="hint">Click a region on the map to see trade and diplomatic options.</p>
+          </div>
+        </div>
       </div>
-      <div id="market-prices" class="bottom-tab-content" data-group="market">
-        <!-- filled by JS -->
-      </div>
-      <div id="price-chart-panel" class="bottom-tab-content" data-group="market" style="display:none">
-        <!-- filled by JS -->
-      </div>
-    </div>
-    <div id="log-panel">
-      <div class="bottom-tabs">
-        <div class="bottom-tab active" data-group="log" data-target="log-entries">📜 CHRONICLES</div>
-        <div class="bottom-tab" data-group="log" data-target="politics-content">⚖ POLITICS</div>
-      </div>
-      <div id="log-entries" class="bottom-tab-content" data-group="log"></div>
-      <div id="politics-content" class="bottom-tab-content" data-group="log" style="display:none"></div>
-    </div>
-  </div>
 
+    </div><!-- end world-panel -->
+
+  </div><!-- end game-layout -->
+</div><!-- end game-screen -->
+
+<!-- ===== LETTER MODAL ===== -->
+<div id="letter-modal" style="display:none">
+  <div id="letter-inner">
+    <div id="lmod-header">
+      <div id="lmod-title">📜 DIPLOMATIC LETTERS</div>
+      <button class="close-btn" id="letter-close">✕</button>
+    </div>
+    <div id="lmod-list"><!-- filled by JS --></div>
+  </div>
 </div>
 
 <!-- ===== TRIBUTE MODAL ===== -->
@@ -235,6 +245,7 @@
       </div>
       <button class="close-btn" id="tmod-close">✕</button>
     </div>
+    <div id="tmod-distance-cost"></div>
     <div id="tmod-desc"></div>
     <div id="tmod-goods"></div>
     <div id="tmod-cart">

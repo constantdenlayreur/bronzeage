@@ -1,79 +1,56 @@
 'use strict';
 
 // ============================================================
-//  WILUSA: Twilight of the Bronze Age
-//  Troy survival strategy — 1250–1150 BC
-//  Player manages Troy (Wilusa) through the Bronze Age Collapse
+//  WILUSA: Twilight of the Bronze Age — Complete Rewrite
+//  Two-panel: City (left) + World (right)
+//  Season system, population units, 3 factions, dynasty
 // ============================================================
 
-// ─── MAP GEOMETRY ───────────────────────────────────────────
-// Canvas target: fills the map area
-// All region polygons defined at reference size 820×480
-// We scale to actual canvas size at draw time
 const REF_W = 1200, REF_H = 800;
-// Geographic bounds → ref coords: x=(lon-19)/45*1200, y=(48-lat)/30*800
-// Scale = 26.667 px per degree in both axes (equirectangular)
 
 // ─── REGION DEFINITIONS ─────────────────────────────────────
-// poly: array of [x, y] at reference 820×480
-// Resources each region exports (what player can BUY there)
-// imports: what they accept in payment (besides gold)
 const REGIONS = {
-
-  // ── Troy / Wilusa (player city) ──────────────────────────
-  // NW tip of Anatolia (Troad). 40°N 26.5°E → ref(200, 213)
   troy: {
     name: 'Troy (Wilusa)', icon: '⚔', isPlayer: true,
     cx: 200, cy: 213,
     poly: [[187,191],[227,200],[240,219],[227,243],[187,240],[173,227],[173,205]],
     fillColor: '#4a2e08', borderColor: '#d4a017',
-    desc: 'Your city. Guards the Hellespont, commanding the strait between the Aegean and Black Sea. Your wealth flows from tolls and trade.',
-    relation: 'player',
-    exports: {},
+    desc: 'Your city. Guards the Hellespont, commanding the strait between the Aegean and Black Sea.',
+    relation: 'player', exports: {}, distance: 0,
   },
-
-  // ── Mycenae / Greece ────────────────────────────────────
-  // Peloponnese + S Greek mainland. ~37.5°N 22°E → ref(80, 280)
   mycenae: {
     name: 'Mycenae', icon: '🛡', isPlayer: false,
     cx: 80, cy: 280,
     poly: [[40,243],[120,243],[147,253],[147,280],[133,307],[93,320],[53,307],[40,280]],
     fillColor: '#2e1e44', borderColor: '#9a5cc0',
-    desc: 'The great warrior kingdoms of Greece. Rich in silver and olive oil — but hungry for bronze. Their fleets grow bolder each year.',
-    relation: 'suspicious',
+    desc: 'The great warrior kingdoms of Greece. Rich in silver and olive oil — but hungry for bronze.',
+    relation: 'suspicious', distance: 2,
     exports: {
       olive_oil: { name:'Olive Oil', icon:'🫒', basePrice:4, qty:5 },
       silver:    { name:'Silver',    icon:'🥈', basePrice:6, qty:3 },
     },
-    imports: ['bronze','grain'],
-    threatLevel: 0,
+    imports: ['bronze','grain'], threatLevel: 0,
   },
-
-  // ── Crete / Knossos ─────────────────────────────────────
-  // Elongated island. ~35.25°N 25°E → ref(160, 339)
   crete: {
     name: 'Crete (Knossos)', icon: '🐂', isPlayer: false,
     cx: 160, cy: 339,
     poly: [[120,327],[147,327],[173,333],[200,331],[219,341],[187,349],[147,349],[120,344]],
     fillColor: '#1a2040', borderColor: '#4878b8',
     desc: 'Island realm of Knossos. Safe and prosperous, a crossroads of Aegean trade.',
-    relation: 'friendly',
+    relation: 'friendly', distance: 2,
     exports: {
       olive_oil: { name:'Olive Oil', icon:'🫒', basePrice:3, qty:4 },
       pottery:   { name:'Pottery',   icon:'🏺', basePrice:3, qty:4 },
     },
     imports: ['bronze','grain'],
   },
-
-  // ── Arzawa (W. Anatolia, incl. Lukka) ───────────────────
-  // W & SW Anatolia. ~37.5°N 29.5°E → ref(280, 272)
   arzawa: {
     name: 'Arzawa', icon: '🌲', isPlayer: false,
     cx: 280, cy: 272,
     poly: [[227,227],[333,227],[347,253],[347,280],[320,307],[280,320],[253,320],[240,307],[213,280],[213,253],[213,213],[227,243]],
     fillColor: '#183520', borderColor: '#4a9038',
-    desc: 'Your western neighbour in Anatolia. Rich in timber, grain, and horses. Often friendly but sometimes rivals the Hittites.',
-    relation: 'neutral',
+    desc: 'Your western neighbour in Anatolia. Rich in timber, grain, and horses.',
+    relation: 'neutral', distance: 1,
     exports: {
       grain:   { name:'Grain',   icon:'🌾', basePrice:2, qty:6 },
       timber:  { name:'Timber',  icon:'🪵', basePrice:3, qty:5 },
@@ -81,147 +58,114 @@ const REGIONS = {
     },
     imports: ['bronze','gold'],
   },
-
-  // ── Hatti / Hittites ─────────────────────────────────────
-  // Central Anatolia. ~40°N 36.5°E → ref(467, 213)
   hatti: {
     name: 'Hatti (Hittites)', icon: '👑', isPlayer: false,
     cx: 467, cy: 213,
     poly: [[320,187],[320,160],[453,147],[560,160],[613,187],[613,227],[560,280],[507,280],[440,267],[387,253],[347,253],[333,227]],
     fillColor: '#2e1010', borderColor: '#c83028',
-    desc: 'Your overlord. The Hittite Empire spans central Anatolia. They demand tribute in bronze each year — and expect your military support. Do not defy them.',
-    relation: 'overlord',
+    desc: 'Your overlord. The Hittite Empire spans central Anatolia. They demand tribute in bronze each year.',
+    relation: 'overlord', distance: 2,
     exports: {
       horses: { name:'Horses',  icon:'🐎', basePrice:7, qty:3 },
       silver: { name:'Silver',  icon:'🥈', basePrice:5, qty:4 },
       grain:  { name:'Grain',   icon:'🌾', basePrice:2, qty:5 },
     },
-    imports: ['bronze'],
-    tributeDue: 3,
+    imports: ['bronze'], tributeDue: 3,
   },
-
-  // ── Kashka (N. Black Sea raiders) ───────────────────────
-  // Black Sea coast strip N of Hatti. ~43°N 37°E → ref(480, 133)
   kashka: {
     name: 'Kashka', icon: '🗡', isPlayer: false,
     cx: 480, cy: 133,
     poly: [[293,107],[427,93],[560,93],[667,133],[653,173],[613,187],[560,160],[453,147],[320,160],[293,160]],
     fillColor: '#221c0c', borderColor: '#7a6822',
-    desc: "Northern raiders along the Black Sea coast. Constant thorn in the Hittite Empire's side. They do not trade — they raid.",
-    relation: 'hostile',
-    exports: {},
-    noTrade: true,
+    desc: "Northern raiders along the Black Sea coast. They do not trade — they raid.",
+    relation: 'hostile', distance: 2,
+    exports: {}, noTrade: true,
   },
-
-  // ── Cyprus ───────────────────────────────────────────────
-  // Island. ~35.1°N 33.4°E → ref(384, 344)
   cyprus: {
     name: 'Cyprus (Alashiya)', icon: '⚒', isPlayer: false,
     cx: 384, cy: 344,
     poly: [[347,327],[387,327],[413,333],[427,347],[413,360],[360,360],[347,347]],
     fillColor: '#2a1608', borderColor: '#c87030',
-    desc: 'The great copper island. Cyprus supplies most of the copper in the Mediterranean world. Without it, there is no bronze.',
-    relation: 'friendly',
+    desc: 'The great copper island. Cyprus supplies most of the copper in the Mediterranean world.',
+    relation: 'friendly', distance: 3,
     exports: {
       copper: { name:'Copper', icon:'⚒', basePrice:3, qty:8 },
     },
-    imports: ['grain','silver'],
-    isCopperHub: true,
+    imports: ['grain','silver'], isCopperHub: true,
   },
-
-  // ── Ugarit / Syria ───────────────────────────────────────
-  // N Syrian coast. ~35.6°N 35.8°E → ref(480, 333)
   ugarit: {
     name: 'Ugarit / Syria', icon: '🏺', isPlayer: false,
     cx: 480, cy: 333,
     poly: [[440,293],[533,293],[547,320],[533,347],[493,373],[440,373],[427,347],[440,320]],
     fillColor: '#142a18', borderColor: '#3a8030',
-    desc: 'The greatest trading hub of the age. Ugarit connects east and west, north and south. Grain, tin via land routes, fine goods — all pass through here.',
-    relation: 'neutral',
+    desc: 'The greatest trading hub of the age. Ugarit connects east and west, north and south.',
+    relation: 'neutral', distance: 3,
     exports: {
       grain:    { name:'Grain',    icon:'🌾', basePrice:2, qty:7 },
       tin:      { name:'Tin',      icon:'🔩', basePrice:6, qty:4 },
       purple_dye:{ name:'Purple Dye', icon:'🟣', basePrice:8, qty:2 },
     },
-    imports: ['bronze','copper','grain'],
-    isTinHub: true,
+    imports: ['bronze','copper','grain'], isTinHub: true,
   },
-
-  // ── Canaan / Levant ──────────────────────────────────────
-  // Levant coast. ~32.5°N 35.5°E → ref(440, 413)
   canaan: {
     name: 'Canaan', icon: '🌿', isPlayer: false,
     cx: 440, cy: 413,
     poly: [[440,373],[493,373],[467,400],[440,427],[413,453],[427,467],[440,453],[427,427],[440,387]],
     fillColor: '#182810', borderColor: '#588030',
-    desc: 'Fertile coastal land rich in grain and olive oil. Cities like Megiddo and Ashdod are hubs of local trade.',
-    relation: 'neutral',
+    desc: 'Fertile coastal land rich in grain and olive oil.',
+    relation: 'neutral', distance: 4,
     exports: {
       grain:     { name:'Grain',     icon:'🌾', basePrice:2, qty:6 },
       olive_oil: { name:'Olive Oil', icon:'🫒', basePrice:4, qty:4 },
     },
     imports: ['bronze','copper'],
   },
-
-  // ── Egypt ────────────────────────────────────────────────
-  // Nile Valley + Delta. ~27°N 31.5°E → ref(333, 560)
   egypt: {
     name: 'Egypt', icon: '𓂀', isPlayer: false,
     cx: 333, cy: 540,
     poly: [[0,440],[133,413],[160,440],[347,445],[373,467],[387,507],[413,560],[400,613],[427,667],[467,747],[480,800],[0,800]],
     fillColor: '#2e2400', borderColor: '#d4aa20',
-    desc: 'The eternal grain basket of the world. Egypt exports enormous quantities of grain and gold. They are diplomatic and prefer trade over war.',
-    relation: 'friendly',
+    desc: 'The eternal grain basket of the world. Egypt exports enormous quantities of grain and gold.',
+    relation: 'friendly', distance: 4,
     exports: {
       grain: { name:'Grain', icon:'🌾', basePrice:2, qty:10 },
       gold:  { name:'Gold',  icon:'◎',  basePrice:5, qty:3 },
     },
-    imports: ['copper','bronze','silver'],
-    isGrainHub: true,
+    imports: ['copper','bronze','silver'], isGrainHub: true,
   },
-
-  // ── Assyria ──────────────────────────────────────────────
-  // Upper Tigris / Nineveh. ~36.5°N 43°E → ref(640, 307)
   assyria: {
     name: 'Assyria (Assur)', icon: '🦁', isPlayer: false,
     cx: 640, cy: 307,
     poly: [[560,280],[667,280],[707,307],[693,347],[653,360],[573,347],[547,320],[547,293]],
     fillColor: '#221408', borderColor: '#c86828',
-    desc: 'The great trading empire of the north. Assyrian merchants operate the tin routes from Afghanistan via donkey caravans through Kanesh. Without them, there is no tin.',
-    relation: 'neutral',
+    desc: 'The great trading empire of the north. Assyrian merchants operate the tin routes from Afghanistan.',
+    relation: 'neutral', distance: 4,
     exports: {
       tin:    { name:'Tin',    icon:'🔩', basePrice:6, qty:5 },
       silver: { name:'Silver', icon:'🥈', basePrice:5, qty:4 },
     },
-    imports: ['bronze','grain'],
-    isTinSource: true,
+    imports: ['bronze','grain'], isTinSource: true,
   },
-
-  // ── Babylon ──────────────────────────────────────────────
-  // S Mesopotamia. ~33°N 45.5°E → ref(720, 400)
   babylon: {
     name: 'Babylon', icon: '🏛', isPlayer: false,
     cx: 720, cy: 400,
     poly: [[667,280],[747,280],[813,320],[853,373],[827,427],[760,467],[667,453],[653,400],[653,360],[693,347],[707,307]],
     fillColor: '#0e1828', borderColor: '#2870b8',
-    desc: 'Ancient city of Hammurabi. The heart of Mesopotamia, rich in gold and tin routed from the east. A distant but worthy trading partner.',
-    relation: 'neutral',
+    desc: 'Ancient city of Hammurabi. The heart of Mesopotamia, rich in gold and tin routed from the east.',
+    relation: 'neutral', distance: 5,
     exports: {
       tin:  { name:'Tin',  icon:'🔩', basePrice:7, qty:4 },
       gold: { name:'Gold', icon:'◎',  basePrice:5, qty:4 },
     },
     imports: ['bronze','grain','silver'],
   },
-
-  // ── Elam / Susa ──────────────────────────────────────────
-  // SW Iran (Khuzestan). ~32°N 49°E → ref(800, 427)
   elam: {
     name: 'Elam (Susa)', icon: '🔶', isPlayer: false,
     cx: 827, cy: 427,
     poly: [[853,373],[933,373],[987,427],[960,480],[880,493],[787,493],[760,467],[827,427]],
     fillColor: '#1c0e0e', borderColor: '#983828',
-    desc: 'Far eastern kingdom at the edge of the known world. Expensive to trade with but holds eastern gold and silver.',
-    relation: 'neutral',
+    desc: 'Far eastern kingdom at the edge of the known world.',
+    relation: 'neutral', distance: 5,
     exports: {
       silver: { name:'Silver', icon:'🥈', basePrice:5, qty:3 },
       gold:   { name:'Gold',   icon:'◎',  basePrice:5, qty:3 },
@@ -231,17 +175,11 @@ const REGIONS = {
 };
 
 // ─── DIPLOMACY PROFILES ──────────────────────────────────────
-// Per-region AI behaviour: score drift, military strength, war threshold
-// initScore: starting relation (-100 to +100)
-// driftPerTurn: score change each turn (negative = naturally declining)
-// military: army strength used when declaring war
-// warThreshold: score at which they declare war (null = never)
-// interests: resources they most value as gifts (+50% effectiveness)
 const DIPLO_PROFILE = {
-  mycenae: { initScore:  28, driftPerTurn: -2, military: 45, warThreshold: -35, canWar: true,  interests: ['bronze','silver'] },
+  mycenae: { initScore:  28, driftPerTurn: -1, military: 45, warThreshold: -35, canWar: true,  interests: ['bronze','silver'] },
   crete:   { initScore:  62, driftPerTurn: -1, military:  0, warThreshold: null, canWar: false, interests: ['grain','pottery'] },
   arzawa:  { initScore:  48, driftPerTurn: -1, military: 18, warThreshold: -55, canWar: false,  interests: ['bronze','gold']   },
-  hatti:   { initScore:  42, driftPerTurn: -2, military: 65, warThreshold: -22, canWar: true,   interests: ['bronze']          },
+  hatti:   { initScore:  42, driftPerTurn: -1, military: 65, warThreshold: -22, canWar: true,   interests: ['bronze']          },
   cyprus:  { initScore:  65, driftPerTurn: -1, military:  0, warThreshold: null, canWar: false, interests: ['grain','silver']  },
   ugarit:  { initScore:  52, driftPerTurn: -1, military:  0, warThreshold: null, canWar: false, interests: ['bronze','copper'] },
   canaan:  { initScore:  42, driftPerTurn: -1, military: 12, warThreshold: -60, canWar: false,  interests: ['bronze','copper'] },
@@ -249,26 +187,15 @@ const DIPLO_PROFILE = {
   assyria: { initScore:  36, driftPerTurn: -1, military: 28, warThreshold: -45, canWar: true,   interests: ['bronze','grain']  },
   babylon: { initScore:  32, driftPerTurn: -1, military: 18, warThreshold: -55, canWar: false,  interests: ['bronze','grain']  },
   elam:    { initScore:  22, driftPerTurn: -1, military: 12, warThreshold: -65, canWar: false,  interests: ['bronze','silver'] },
-  // kashka: always hostile, handled by random raid system — no diplo profile
 };
 
-// ─── BASE MARKET PRICES (gold per unit) ─────────────────────
+// ─── BASE PRICES ─────────────────────────────────────────────
 const BASE_PRICES = {
-  grain:     2,
-  copper:    3,
-  tin:       6,
-  bronze:    10,
-  silver:    5,
-  gold:      1,   // gold buys itself at par, conceptually
-  olive_oil: 4,
-  pottery:   3,
-  timber:    3,
-  horses:    8,
-  purple_dye:8,
+  grain: 2, copper: 3, tin: 6, bronze: 10, silver: 5,
+  gold: 1, olive_oil: 4, pottery: 3, timber: 3, horses: 8, purple_dye: 8,
 };
 
-// ─── CITY LIST (attackable city markers on the map) ─────────
-// x/y are reference coordinates (820×480 space)
+// ─── CITY LIST ────────────────────────────────────────────────
 const CITY_LIST = [
   { id:'hattusa',  label:'HATTUSA',  x:417, y:213, region:'hatti'    },
   { id:'nineveh',  label:'NINEVEH',  x:644, y:310, region:'assyria'  },
@@ -283,245 +210,231 @@ const CITY_LIST = [
   { id:'apasa',    label:'APASA',    x:221, y:280, region:'arzawa'   },
 ];
 
-// ─── HISTORICAL EVENTS ──────────────────────────────────────
+// ─── HISTORICAL EVENTS (30-turn system: 1 event per 2 turns) ─
 const EVENTS = [
   {
-    turn: 1,
-    icon: '⚔',
-    title: 'The Reign Begins',
-    text: 'You have taken the throne of Wilusa. The Hittite Empire dominates the land. As their vassal, you owe tribute each year — but the sea-lanes are open, and trade flows freely. Establish your routes while times are good.',
+    turn: 1, icon: '⚔', title: 'The Reign Begins',
+    text: 'You have taken the throne of Wilusa. The Hittite Empire dominates the land. As their vassal, you owe tribute each summer — but the sea-lanes are open, and trade flows freely.',
     effects: [],
   },
   {
-    turn: 2,
-    icon: '🌊',
-    title: 'Mycenaean Pirates',
-    text: 'Mycenaean raiders are preying on trade ships in the Aegean. The sea lanes grow dangerous. Sea transport costs rise.',
-    effects: [
-      { type: 'price_mod', resource: 'olive_oil', regionId: 'mycenae', mult: 1.3, desc: 'Aegean trade disrupted' },
-    ],
+    turn: 4, icon: '🌊', title: 'Mycenaean Pirates',
+    text: 'Mycenaean raiders prey on trade ships in the Aegean. Sea transport costs rise.',
+    effects: [{ type:'price_mod', resource:'olive_oil', regionId:'mycenae', mult:1.3, desc:'Aegean trade disrupted' }],
     logText: 'Mycenaean pirates raid Aegean shipping lanes.',
     logClass: 'log-crisis',
   },
   {
-    turn: 3,
-    icon: '📜',
-    title: 'Afghan Tin Disruption',
-    text: 'Nomadic migrations in the distant steppes disrupt the tin caravans from Afghanistan. The Assyrian merchants who supply tin via Kanesh report shortages. Tin prices are rising.',
-    effects: [
-      { type: 'price_global', resource: 'tin', mult: 1.5, desc: 'Tin +50%' },
-    ],
+    turn: 6, icon: '📜', title: 'Afghan Tin Disruption',
+    text: 'Nomadic migrations disrupt the tin caravans from Afghanistan. Tin prices are rising.',
+    effects: [{ type:'price_global', resource:'tin', mult:1.5, desc:'Tin +50%' }],
     logText: 'Afghan tin routes disrupted — tin prices rising.',
     logClass: 'log-event',
   },
   {
-    turn: 4,
-    icon: '☀',
-    title: 'Drought on the Nile',
-    text: 'A prolonged drought has reduced the Nile flood. Egypt\'s grain exports are cut sharply. Find alternative grain sources now.',
+    turn: 8, icon: '☀', title: 'Drought on the Nile',
+    text: 'A prolonged drought has reduced the Nile flood. Egypt\'s grain exports are cut sharply.',
     effects: [
-      { type: 'price_global', resource: 'grain', mult: 1.8, desc: 'Grain +80%' },
-      { type: 'reduce_export', regionId: 'egypt', resource: 'grain', amount: 4, desc: 'Egypt grain supply −4' },
+      { type:'price_global', resource:'grain', mult:1.8, desc:'Grain +80%' },
+      { type:'reduce_export', regionId:'egypt', resource:'grain', amount:4, desc:'Egypt grain supply −4' },
     ],
     logText: 'Drought on the Nile — Egyptian grain scarce.',
     logClass: 'log-crisis',
   },
   {
-    turn: 5,
-    icon: '👑',
-    title: 'Hittite Tribute Demand',
-    text: 'The Great King of Hatti has sent envoys. He demands double tribute this year — a sign of the Empire\'s growing financial strain. You must pay 6 bronze instead of 3.',
-    effects: [
-      { type: 'tribute_double', desc: 'Tribute doubles to 6 bronze this turn' },
-    ],
+    turn: 10, icon: '👑', title: 'Hittite Tribute Demand',
+    text: 'The Great King of Hatti has sent envoys. He demands double tribute this year.',
+    effects: [{ type:'tribute_double', desc:'Tribute doubles to 6 bronze this turn' }],
     logText: 'Hatti demands double tribute — 6 bronze due.',
     logClass: 'log-tribute',
   },
   {
-    turn: 6,
-    icon: '🏴‍☠️',
-    title: 'The Sea Peoples',
-    text: 'Reports arrive of mysterious raiders from the sea — the Egyptians call them "Sea Peoples." They strike without warning, burning coastal villages. Cyprus feels threatened.',
-    effects: [
-      { type: 'price_global', resource: 'copper', mult: 1.3, desc: 'Copper +30% (Cyprus anxiety)' },
-    ],
+    turn: 12, icon: '🏴‍☠️', title: 'The Sea Peoples',
+    text: 'Reports arrive of mysterious raiders from the sea. They strike without warning, burning coastal villages.',
+    effects: [{ type:'price_global', resource:'copper', mult:1.3, desc:'Copper +30% (Cyprus anxiety)' }],
     logText: 'Sea Peoples first reported in the Eastern Mediterranean.',
     logClass: 'log-crisis',
   },
   {
-    turn: 7,
-    icon: '⚔',
-    title: 'The Trojan War',
-    text: 'A great Mycenaean fleet has sailed for your shores! Led by the Achaean kings, they besiege Wilusa. The city walls will be tested. Your garrison must hold.',
-    effects: [
-      { type: 'siege', attackStrength: 40, desc: 'Mycenaean siege!' },
-    ],
+    turn: 14, icon: '⚔', title: 'The Trojan War',
+    text: 'A great Mycenaean fleet has sailed for your shores! The city walls will be tested.',
+    effects: [{ type:'siege', attackStrength:40, desc:'Mycenaean siege!' }],
     logText: 'MYCENAEAN FORCES BESIEGE TROY!',
-    logClass: 'log-crisis',
-    isSiege: true,
+    logClass: 'log-crisis', isSiege: true,
   },
   {
-    turn: 8,
-    icon: '🔥',
-    title: 'Cyprus Burns',
-    text: 'The Sea Peoples have sacked the great copper cities of Cyprus. Enkomi, Kition — burning. Copper shipments have ceased. Your bronze production is in crisis.',
+    turn: 16, icon: '🔥', title: 'Cyprus Burns',
+    text: 'The Sea Peoples have sacked the great copper cities of Cyprus. Copper shipments have ceased.',
     effects: [
-      { type: 'destroy_region', regionId: 'cyprus', desc: 'Cyprus destroyed' },
-      { type: 'price_global', resource: 'copper', mult: 3.0, desc: 'Copper TRIPLES in price' },
-      { type: 'price_global', resource: 'bronze', mult: 2.0, desc: 'Bronze doubles in price' },
+      { type:'destroy_region', regionId:'cyprus', desc:'Cyprus destroyed' },
+      { type:'price_global', resource:'copper', mult:3.0, desc:'Copper TRIPLES' },
+      { type:'price_global', resource:'bronze', mult:2.0, desc:'Bronze doubles' },
     ],
     logText: 'Cyprus sacked by Sea Peoples — copper supply DESTROYED.',
     logClass: 'log-crisis',
   },
   {
-    turn: 9,
-    icon: '🌋',
-    title: 'Earthquakes',
-    text: 'A series of devastating earthquakes strikes Anatolia. Several cities are damaged. Your walls crack.',
-    effects: [
-      { type: 'damage_walls', amount: 1, desc: 'Walls −1 level (earthquake damage)' },
-    ],
+    turn: 18, icon: '🌋', title: 'Earthquakes',
+    text: 'A series of devastating earthquakes strikes Anatolia. Your walls crack.',
+    effects: [{ type:'damage_walls', amount:1, desc:'Walls −1 (earthquake)' }],
     logText: 'Earthquake damages Troy\'s walls.',
     logClass: 'log-crisis',
   },
   {
-    turn: 10,
-    icon: '💀',
-    title: 'Ugarit Falls',
-    text: 'Ugarit — the greatest trading city in the world — has been burned to the ground. A merchant wrote his last letter: "The ships have gone. We cannot save ourselves." The tin routes through the Levant are severed forever.',
+    turn: 20, icon: '💀', title: 'Ugarit Falls',
+    text: 'Ugarit — the greatest trading city in the world — has been burned to the ground.',
     effects: [
-      { type: 'destroy_region', regionId: 'ugarit', desc: 'Ugarit destroyed' },
-      { type: 'price_global', resource: 'tin', mult: 2.5, desc: 'Tin prices SKYROCKET' },
+      { type:'destroy_region', regionId:'ugarit', desc:'Ugarit destroyed' },
+      { type:'price_global', resource:'tin', mult:2.5, desc:'Tin prices SKYROCKET' },
     ],
     logText: 'UGARIT HAS FALLEN. The great trade hub is gone.',
     logClass: 'log-crisis',
   },
   {
-    turn: 11,
-    icon: '🌑',
-    title: 'Hatti Collapses',
-    text: 'The Hittite Empire — your overlord for a century — has collapsed. Hattusa has been burned and abandoned. The Great King is gone. Troy is no longer a vassal. You are free — but the world order has ended.',
+    turn: 22, icon: '🌑', title: 'Hatti Collapses',
+    text: 'The Hittite Empire — your overlord for a century — has collapsed. Troy is no longer a vassal. You are free — but the world order has ended.',
     effects: [
-      { type: 'free_from_vassalage', desc: 'No more tribute to Hatti' },
-      { type: 'destroy_region', regionId: 'hatti', desc: 'Hatti destroyed' },
+      { type:'free_from_vassalage', desc:'No more tribute to Hatti' },
+      { type:'destroy_region', regionId:'hatti', desc:'Hatti destroyed' },
     ],
     logText: 'HATTI COLLAPSES. Troy is FREE — but the world is in chaos.',
     logClass: 'log-event',
   },
   {
-    turn: 12,
-    icon: '🏴‍☠️',
-    title: 'Sea Peoples Invade Egypt',
-    text: 'The Sea Peoples have reached Egypt. Pharaoh Ramesses III fights them at the Nile Delta. Egypt survives but barely — grain exports are cut off entirely for a year.',
+    turn: 24, icon: '🏴‍☠️', title: 'Sea Peoples Invade Egypt',
+    text: 'The Sea Peoples have reached Egypt. Grain exports are cut off entirely.',
     effects: [
-      { type: 'reduce_export', regionId: 'egypt', resource: 'grain', amount: 8, desc: 'Egypt grain halted' },
-      { type: 'price_global', resource: 'grain', mult: 2.0, desc: 'Grain prices double' },
+      { type:'reduce_export', regionId:'egypt', resource:'grain', amount:8, desc:'Egypt grain halted' },
+      { type:'price_global', resource:'grain', mult:2.0, desc:'Grain prices double' },
     ],
     logText: 'Sea Peoples invade Egypt. Grain crisis begins.',
     logClass: 'log-crisis',
   },
   {
-    turn: 13,
-    icon: '🔥',
-    title: 'Anatolia Burns',
-    text: 'City after city in Anatolia is abandoned or burned. Arzawa collapses. The darkness spreads. Troy stands increasingly alone.',
+    turn: 26, icon: '🔥', title: 'Anatolia Burns',
+    text: 'City after city in Anatolia is abandoned or burned. Troy stands increasingly alone.',
     effects: [
-      { type: 'destroy_region', regionId: 'arzawa', desc: 'Arzawa falls' },
-      { type: 'destroy_region', regionId: 'crete', desc: 'Crete collapses' },
+      { type:'destroy_region', regionId:'arzawa', desc:'Arzawa falls' },
+      { type:'destroy_region', regionId:'crete', desc:'Crete collapses' },
     ],
     logText: 'Arzawa and Crete collapse. The dark age spreads.',
     logClass: 'log-crisis',
   },
   {
-    turn: 14,
-    icon: '🛡',
-    title: 'Mycenae Falls',
-    text: 'The great citadels of Mycenae and Tiryns have been abandoned. The Achaean kingdoms that once threatened you are no more. The Aegean falls silent.',
-    effects: [
-      { type: 'destroy_region', regionId: 'mycenae', desc: 'Mycenae falls' },
-    ],
+    turn: 28, icon: '🛡', title: 'Mycenae Falls',
+    text: 'The great citadels of Mycenae have been abandoned. The Aegean falls silent.',
+    effects: [{ type:'destroy_region', regionId:'mycenae', desc:'Mycenae falls' }],
     logText: 'Mycenae collapses. The Aegean is dark.',
     logClass: 'log-event',
   },
   {
-    turn: 15,
-    icon: '⚔',
-    title: 'Final Stand',
-    text: 'The Bronze Age is ending. Civilizations that stood for centuries have crumbled. Troy still stands. Will you endure to the dawn of a new age — or will this be your final year?',
-    effects: [],
-    logText: 'The final year. Can Troy survive?',
-    logClass: 'log-event',
-    isFinal: true,
+    turn: 30, icon: '⚔', title: 'Final Stand',
+    text: 'The Bronze Age is ending. Civilizations that stood for centuries have crumbled. Troy still stands. Will you endure to the dawn of a new age?',
+    effects: [], logText: 'The final season. Can Troy survive?',
+    logClass: 'log-event', isFinal: true,
   },
 ];
+
 
 // ─── GAME STATE ──────────────────────────────────────────────
 const G = {
   turn: 1,
-  maxTurns: 15,
+  maxTurns: 30,  // 30 half-years = 15 full years
 
   // Resources
   res: {
-    grain: 20, copper: 8, tin: 4, bronze: 6, gold: 20,
-    silver: 0, olive_oil: 0, pottery: 0, timber: 0, horses: 0,
+    grain: 50, copper: 8, tin: 4, bronze: 6, gold: 30,
+    silver: 0, olive_oil: 0, pottery: 0, timber: 0, horses: 0, purple_dye: 0,
   },
 
-  // City
-  population: 100,
-  walls: 3,          // 1-5
-  maxWalls: 5,
-  militia:  10,  // citizen levies — cheap, weaker in battle
-  infantry:  5,  // professional soldiers — needs bronze, fights at 1.6× strength
+  // Population units (each unit = 100 people)
+  pop: {
+    peasant:   45,   // produce grain (summer only)
+    artisan:   15,   // produce bronze
+    militia:   20,   // defend city (cheap, weaker)
+    legionary:  5,   // defend city (expensive, strong)
+    trader:    10,   // generate gold
+    patrician:  5,   // palatial faction; plot coups
+  },
+
+  // Dynasty
+  dynasty: {
+    rulerName: 'Priam',
+    rulerAge:  35,
+    legitimacy: 70,   // 0-100; at 0 = coup succeeds
+    reignTurns: 0,
+  },
+
+  // Factions
+  factions: {
+    city:     { loyalty: 70 },   // peasants + artisans + traders
+    military: { loyalty: 70 },   // militia + legionaries
+    palatial: { loyalty: 65 },   // patricians
+  },
+
+  // Buildings (levels)
+  buildings: { walls: 3, harbor: 1, workshop: 1, farms: 1, palace: 1 },
+
+  // Policy
+  taxRate:  'normal',  // 'low' | 'normal' | 'high'
+  tollRate: 'normal',  // 'low' | 'normal' | 'high'
+
+  // Stability (derived/updated each turn)
+  stability: 75,
+
+  // Iron working tech
+  ironWorking: false,
+
+  // Cavalry bonus
+  cavalryBonus: 0,
+
+  // Disruption: increases trade costs; increased by wars and collapse events
+  disruption: 0,
+
+  // Vassal status
   vassalOfHatti: true,
   tributeDoubleThisTurn: false,
   tributeRefusedThisTurn: false,
-  cavalryBonus: 0,  // chariot teams (max 5): +8 defence each, +10% expedition power each
 
-  stability:    75, // 0–100: social cohesion — scales production & battle morale
-  ironWorking:  false, // researched iron-working (unlocked turn 7+)
-  tollPolicy:   'normal', // 'low' | 'normal' | 'high' — Hellespont toll setting
-  droughtLevel: 0,  // 0=good, 1=dry year (−30% grain), 2=severe drought (−55% grain)
+  // Drought
+  droughtLevel: 0,
 
-  // Internal factions
-  factions: {
-    military: { loyalty: 70 }, // soldiers, officers — need gold & arms
-    peasants:  { loyalty: 70 }, // farmers, craftsmen — need food & peace
-  },
-
-  // Price history for chart (one entry per turn)
-  priceHistory: [],
-
-  // Local production upgrades (permanent investments)
-  production: {
-    farmland: 0,   // 0-3 levels: each +2 grain/turn   (cost ◎8 each)
-    tollgate: 0,   // 0-2 levels: each +3 gold/turn    (cost ◎12 each)
-    smithy:   0,   // 0-2 levels: each +1 bronze/turn  (cost ◎8 + ⚒3 each)
-  },
-
-  // Market price multipliers (affected by events)
-  priceMult: {
-    grain: 1, copper: 1, tin: 1, bronze: 1,
-    silver: 1, olive_oil: 1, pottery: 1, timber: 1, horses: 1, purple_dye: 1,
-  },
-
-  // Region state (can be destroyed, hostile, etc.)
-  regionState: {},  // keyed by regionId: { destroyed, relation, exportMods }
-
-  // Trade this turn
+  // Trade
   tradeDoneThisTurn: false,
   lastTradedRegionId: null,
 
+  // Diplomatic letters
+  pendingLetters: [],
+  nextLetterId: 1,
+
+  // Inter-nation wars (affect disruption)
+  nationWars: [],
+
+  // Price multipliers
+  priceMult: {
+    grain:1, copper:1, tin:1, bronze:1, silver:1,
+    olive_oil:1, pottery:1, timber:1, horses:1, purple_dye:1,
+  },
+
+  // Region state
+  regionState: {},
+
+  // Price history for chart
+  priceHistory: [],
+
+  // Production upgrades (legacy compatibility for smithy)
+  production: { farmland: 0, tollgate: 0, smithy: 0 },
+
   // Log
   log: [],
-
   addLog(text, cls='log-norm') {
     this.log.unshift({ text, cls });
-    if (this.log.length > 40) this.log.pop();
+    if (this.log.length > 50) this.log.pop();
     renderLog();
   }
 };
 
-// Init region state
+// ─── INIT REGION STATE ───────────────────────────────────────
 Object.keys(REGIONS).forEach(id => {
   const r    = REGIONS[id];
   const prof = DIPLO_PROFILE[id];
@@ -536,14 +449,44 @@ Object.keys(REGIONS).forEach(id => {
       alliance:        false,
       tradeDeal:       false,
       warDeclaredTurn: null,
-      warAttackTurn:   null,  // last turn they attacked in war
-      pendingDemand:   null,  // { resource, qty, deadline }
+      warAttackTurn:   null,
+      pendingDemand:   null,
     } : null,
   };
 });
 
-// ─── DROUGHT & STABILITY HELPERS ─────────────────────────────
+// ─── SEASON / TIME HELPERS ───────────────────────────────────
+function isSummer()    { return G.turn % 2 === 1; }
+function seasonLabel() { return isSummer() ? '☀ Summer' : '❄ Winter'; }
+function bcYear()      { return 1250 - Math.floor((G.turn - 1) / 2); }
 
+function popTotal()    {
+  return Object.values(G.pop).reduce((s, v) => s + v, 0);
+}
+
+function getTotalGarrison()   { return G.pop.militia + G.pop.legionary; }
+function getGarrisonStrength() {
+  const ironMult = G.ironWorking ? 1.30 : 1.0;
+  return G.pop.militia * 1.0 + Math.round(G.pop.legionary * 1.6 * ironMult);
+}
+
+function garrisonGoldCost() {
+  return Math.floor(G.pop.militia / 6) + Math.floor(G.pop.legionary / 4);
+}
+
+function garrisonGrainCost() {
+  return Math.floor(G.pop.militia / 8) + Math.floor(G.pop.legionary / 6);
+}
+
+function applyGarrisonLoss(frac) {
+  const mLoss = Math.min(G.pop.militia,   Math.round(G.pop.militia   * frac * 1.25));
+  const iLoss = Math.min(G.pop.legionary, Math.round(G.pop.legionary * frac * 0.75));
+  G.pop.militia   = Math.max(0, G.pop.militia   - mLoss);
+  G.pop.legionary = Math.max(0, G.pop.legionary - iLoss);
+  return mLoss + iLoss;
+}
+
+// ─── PRODUCTION (season-aware) ───────────────────────────────
 function droughtGrainMult() { return [1.0, 0.70, 0.45][G.droughtLevel]; }
 
 function stabilityProdMult() {
@@ -554,53 +497,75 @@ function stabilityProdMult() {
 }
 
 function getTollGoldBonus() {
-  return { low: -3, normal: 0, high: 5 }[G.tollPolicy] ?? 0;
+  return { low: -3, normal: 0, high: 5 }[G.tollRate] ?? 0;
 }
 
-// ─── RESOURCE PRODUCTION (per turn) ─────────────────────────
-function getTroyProduction() {
-  const p  = G.production;
+function getTaxGoldMult() {
+  return { low: 0.6, normal: 1.0, high: 1.5 }[G.taxRate] ?? 1.0;
+}
+
+function computeProduction() {
   const sm = stabilityProdMult();
   const dm = droughtGrainMult();
-  return {
-    grain:  Math.max(0, Math.round((4 + p.farmland * 2) * dm * sm)),
-    gold:   Math.round((5 + p.tollgate * 3 + getTollGoldBonus()) * sm),
-    copper: 0,
-    tin:    0,
-    bronze: Math.max(0, Math.round(p.smithy * sm)),
-  };
+
+  // Grain: peasants produce only in summer; farms building boosts it
+  const farmBonus = G.buildings.farms * 0.15;
+  const grainPerPeasant = isSummer() ? (0.8 + farmBonus) * dm * sm : 0;
+  const grain = Math.max(0, Math.round(G.pop.peasant * grainPerPeasant));
+
+  // Gold: traders + toll income; harbor building boosts trader yield
+  const harborBonus = G.buildings.harbor * 0.12;
+  const traderGold = Math.round(G.pop.trader * (1.5 + harborBonus) * getTaxGoldMult() * sm);
+  const tollGold   = Math.round((3 + getTollGoldBonus()) * sm);
+  const gold = Math.max(0, traderGold + tollGold);
+
+  // Bronze: artisans; workshop building boosts yield
+  const workshopBonus = G.buildings.workshop * 0.15;
+  const bronze = Math.max(0, Math.round(G.pop.artisan * (0.4 + workshopBonus) * sm));
+
+  // Auto-smithy (legacy production building)
+  const smithyBronze = Math.max(0, Math.round(G.production.smithy * sm));
+
+  return { grain, gold, bronze: bronze + smithyBronze };
 }
 
 function popGrainConsumption() {
-  // 3 grain per 100 pop, scales linearly
-  return Math.max(1, Math.ceil((G.population / 100) * 3));
+  // Every unit eats 0.15 grain per turn; traders eat a bit more
+  return Math.max(1, Math.ceil(popTotal() * 0.15));
 }
 
-// Headcount and weighted combat strength
-function getTotalGarrison() { return G.militia + G.infantry; }
-function getGarrisonStrength() {
-  // Infantry: 1.6× for bronze arms; +30% more if iron weapons researched
-  const ironMult = G.ironWorking ? 1.30 : 1.0;
-  return G.militia * 1.0 + Math.round(G.infantry * 1.6 * ironMult);
+function feedPopulation() {
+  const need = popGrainConsumption();
+  if (G.res.grain >= need) {
+    G.res.grain -= need;
+    // Slight population growth in summer if food surplus
+    if (isSummer() && G.res.grain >= need * 2 && popTotal() < 200) {
+      const growChance = Math.random();
+      if (growChance < 0.25) {
+        G.pop.peasant++;
+        G.addLog('🌾 Population grows — new peasant family settles.', 'log-good');
+      }
+    }
+  } else {
+    const deficit = need - G.res.grain;
+    G.res.grain = 0;
+    // Lose population units proportional to deficit
+    const unitsLost = Math.min(Math.ceil(deficit / 0.15), 3);
+    killPopUnits(unitsLost);
+    G.addLog(`💀 Famine! ${unitsLost} population unit(s) lost (not enough grain).`, 'log-crisis');
+  }
 }
 
-// Gold upkeep: militia cheaper (less equipment), infantry costlier
-function garrisonGoldCost() {
-  return Math.floor(G.militia / 6) + Math.floor(G.infantry / 4);
-}
-
-// Grain upkeep: all soldiers eat
-function garrisonGrainCost() {
-  return Math.floor(G.militia / 8) + Math.floor(G.infantry / 6);
-}
-
-// Apply proportional losses — militia take heavier casualties (less armour)
-function applyGarrisonLoss(frac) {
-  const mLoss = Math.min(G.militia,  Math.round(G.militia  * frac * 1.25));
-  const iLoss = Math.min(G.infantry, Math.round(G.infantry * frac * 0.75));
-  G.militia  = Math.max(0, G.militia  - mLoss);
-  G.infantry = Math.max(0, G.infantry - iLoss);
-  return mLoss + iLoss;
+function killPopUnits(n) {
+  // Remove n units, prioritizing artisans then traders, spare military and patricians
+  const order = ['artisan', 'trader', 'peasant', 'militia', 'legionary', 'patrician'];
+  let remaining = n;
+  for (const cls of order) {
+    if (remaining <= 0) break;
+    const remove = Math.min(G.pop[cls], remaining);
+    G.pop[cls] = Math.max(0, G.pop[cls] - remove);
+    remaining -= remove;
+  }
 }
 
 function feedGarrison() {
@@ -609,21 +574,85 @@ function feedGarrison() {
   if (G.res.grain >= need) { G.res.grain -= need; return; }
   const deficit   = need - G.res.grain;
   G.res.grain     = 0;
-  // Militia desert first — less loyal, no professional bond
-  const mDesertion = Math.min(G.militia, deficit * 4);
-  G.militia        = Math.max(0, G.militia - mDesertion);
+  const mDesertion = Math.min(G.pop.militia, deficit * 4);
+  G.pop.militia    = Math.max(0, G.pop.militia - mDesertion);
   const remaining  = Math.max(0, deficit - Math.ceil(mDesertion / 4));
-  const iDesertion = Math.min(G.infantry, remaining * 3);
-  G.infantry       = Math.max(0, G.infantry - iDesertion);
+  const iDesertion = Math.min(G.pop.legionary, remaining * 3);
+  G.pop.legionary  = Math.max(0, G.pop.legionary - iDesertion);
   const total = mDesertion + iDesertion;
-  if (total > 0) G.addLog(`⚠ Garrison underfed — ${total} warriors desert.`, 'log-crisis');
+  if (total > 0) G.addLog(`⚠ Garrison underfed — ${total} soldiers desert.`, 'log-crisis');
 }
 
-// ─── CRAFTING (Bronze from Copper + Tin) ────────────────────
-// 2 copper + 1 tin → 1 bronze (max 4/turn)
-function canCraft(qty) {
-  return G.res.copper >= qty * 2 && G.res.tin >= qty;
+// ─── POPULATION CONVERSION ───────────────────────────────────
+function convertPeasantToMilitia() {
+  if (G.pop.peasant < 1 || G.res.gold < 1 || G.res.grain < 1) return;
+  G.pop.peasant--; G.pop.militia++;
+  G.res.gold--; G.res.grain--;
+  G.addLog('Conscripted 1 peasant unit as militia (+1 militia).', 'log-good');
+  renderAll();
 }
+
+function convertMilitiaToLegionary() {
+  if (G.pop.militia < 1 || G.res.bronze < 1) return;
+  G.pop.militia--; G.pop.legionary++;
+  G.res.bronze--;
+  G.addLog('Equipped 1 militia as legionary (+1 legionary).', 'log-good');
+  renderAll();
+}
+
+function convertPeasantToArtisan() {
+  if (G.pop.peasant < 1 || G.res.gold < 2) return;
+  if (G.pop.artisan >= G.buildings.workshop * 3 + 3) {
+    G.addLog('Workshop capacity full. Build more workshop levels.', 'log-event');
+    return;
+  }
+  G.pop.peasant--; G.pop.artisan++;
+  G.res.gold -= 2;
+  G.addLog('Trained 1 peasant as artisan (+1 artisan).', 'log-good');
+  renderAll();
+}
+
+function demobilize(type) {
+  if (type === 'militia'   && G.pop.militia   > 0) { G.pop.militia--;   G.pop.peasant++; G.addLog('Demobilized 1 militia → peasant.', 'log-event'); renderAll(); }
+  if (type === 'legionary' && G.pop.legionary > 0) { G.pop.legionary--; G.pop.militia++; G.addLog('Demobilized 1 legionary → militia.', 'log-event'); renderAll(); }
+}
+
+// ─── BUILDINGS ───────────────────────────────────────────────
+const BUILDING_DEFS = {
+  walls:    { icon:'🏰', name:'Walls',    maxLevel:5, cost: (lv) => ({ bronze: 5 }),          desc:'Defense multiplier' },
+  harbor:   { icon:'⛵', name:'Harbor',   maxLevel:3, cost: (lv) => ({ gold: 10 }),            desc:'Attracts traders, +gold' },
+  workshop: { icon:'⚒', name:'Workshop', maxLevel:3, cost: (lv) => ({ gold: 8 }),             desc:'Enables more artisans' },
+  farms:    { icon:'🌾', name:'Farms',    maxLevel:3, cost: (lv) => ({ gold: 6 }),             desc:'Boosts grain from peasants' },
+  palace:   { icon:'🏛', name:'Palace',   maxLevel:3, cost: (lv) => ({ gold: 10, bronze: 2 }), desc:'Pleases palatial faction' },
+};
+
+function buildBuilding(type) {
+  const def = BUILDING_DEFS[type];
+  if (!def) return;
+  const cur = G.buildings[type];
+  if (cur >= def.maxLevel) return;
+  const cost = def.cost(cur);
+  for (const [res, amt] of Object.entries(cost)) {
+    if ((G.res[res] || 0) < amt) { G.addLog(`Not enough ${res} to build ${def.name}.`, 'log-event'); return; }
+  }
+  for (const [res, amt] of Object.entries(cost)) G.res[res] -= amt;
+  G.buildings[type]++;
+
+  // Side effects
+  if (type === 'harbor' && G.pop.trader < G.buildings.harbor * 2 + 2) {
+    G.pop.trader++;  // harbor attracts a trader unit
+    G.addLog(`${def.name} upgraded to level ${G.buildings[type]} — a trader family arrives!`, 'log-good');
+  } else if (type === 'farms' && G.pop.peasant < G.buildings.farms * 5 + 20) {
+    G.pop.peasant++;  // farms attract peasants
+    G.addLog(`${def.name} upgraded to level ${G.buildings[type]} — a peasant family settles!`, 'log-good');
+  } else {
+    G.addLog(`${def.name} upgraded to level ${G.buildings[type]}.`, 'log-good');
+  }
+  renderAll();
+}
+
+// ─── CRAFTING ────────────────────────────────────────────────
+function canCraft(qty) { return G.res.copper >= qty * 2 && G.res.tin >= qty; }
 
 function craftBronze(qty) {
   if (!canCraft(qty)) return false;
@@ -631,22 +660,28 @@ function craftBronze(qty) {
   G.res.tin    -= qty;
   G.res.bronze += qty;
   G.addLog(`Forged ${qty} Bronze from Copper and Tin.`, 'log-good');
+  renderAll();
   return true;
 }
 
-// ─── GET EFFECTIVE PRICE ─────────────────────────────────────
+// ─── PRICE SYSTEM ────────────────────────────────────────────
 function getPrice(resource, regionId, buying = false) {
   let p = BASE_PRICES[resource] || 1;
   p *= G.priceMult[resource] || 1;
   if (regionId) {
     const rs = G.regionState[regionId];
     if (rs && rs.priceMods[resource]) p *= rs.priceMods[resource];
-    if (buying && rs?.diplo?.tradeDeal) p *= 0.85; // 15% trade deal discount
+    if (buying && rs?.diplo?.tradeDeal) p *= 0.85;
   }
   return Math.max(1, Math.round(p * 10) / 10);
 }
 
-// ─── TRIBUTE TO HATTI ────────────────────────────────────────
+function getTradeDistanceCost(regionId) {
+  const dist = REGIONS[regionId]?.distance || 0;
+  return Math.round(dist * 2 * (1 + G.disruption * 0.2));
+}
+
+// ─── TRIBUTE ─────────────────────────────────────────────────
 function payTribute() {
   if (!G.vassalOfHatti) return;
   const due = G.tributeDoubleThisTurn ? 6 : 3;
@@ -659,55 +694,22 @@ function payTribute() {
     G.res.bronze -= due;
     G.addLog(`Paid ${due} ⚙ tribute to Hatti.`, 'log-tribute');
     if (hd && !hd.atWar) hd.score = clampScore(hd.score + 4);
+    G.dynasty.legitimacy = Math.min(100, G.dynasty.legitimacy + 2);
   } else {
-    G.addLog(`⚠ Could not pay tribute to Hatti — not enough bronze. They grow angry.`, 'log-crisis');
+    G.addLog(`⚠ Could not pay tribute to Hatti — not enough bronze.`, 'log-crisis');
     if (hd) hd.score = clampScore(hd.score - 10);
+    G.dynasty.legitimacy = Math.max(0, G.dynasty.legitimacy - 5);
   }
 
   G.tributeDoubleThisTurn  = false;
   G.tributeRefusedThisTurn = false;
 }
 
-// ─── FEED POPULATION ─────────────────────────────────────────
-function feedPopulation() {
-  const need = popGrainConsumption();
-  if (G.res.grain >= need) {
-    G.res.grain -= need;
-    // Slight population growth
-    if (G.population < 100) G.population = Math.min(100, G.population + 2);
-  } else {
-    const deficit = need - G.res.grain;
-    G.res.grain = 0;
-    const loss = Math.ceil(deficit * 8);
-    G.population = Math.max(0, G.population - loss);
-    G.addLog(`Famine! Population falls by ${loss} (not enough grain).`, 'log-crisis');
-  }
-}
-
-// ─── SIEGE RESOLUTION ────────────────────────────────────────
-function resolveSiege(attackStrength) {
-  const defense = getGarrisonStrength() + G.walls * 8;
-  if (defense >= attackStrength) {
-    const lost = applyGarrisonLoss(0.3);
-    G.addLog(`Troy HELD the siege! Garrison lost ${lost} warriors.`, 'log-good');
-    return true;
-  } else {
-    G.walls = Math.max(0, G.walls - 1);
-    const lost = applyGarrisonLoss(0.5);
-    G.addLog(`Troy's walls were breached! Walls −1, garrison lost ${lost}.`, 'log-crisis');
-    if (G.walls === 0) {
-      endGame(false, 'Troy has fallen. The walls are broken and the city is sacked. History will remember this as the end of an age.');
-    }
-    return false;
-  }
-}
-
 // ─── DROUGHT ─────────────────────────────────────────────────
-// Historical: the 3.2kya megadrought struck hardest 1200-1150 BC (turns 7-15)
 function updateDrought() {
   const t = G.turn;
-  const worsen  = t >= 7 ? 0.30 : 0.12;
-  const recover = G.droughtLevel === 2 ? 0.20 : 0.30;
+  const worsen  = t >= 14 ? 0.22 : 0.10;
+  const recover = G.droughtLevel === 2 ? 0.25 : 0.35;
 
   if (G.droughtLevel < 2 && Math.random() < worsen) {
     G.droughtLevel++;
@@ -717,127 +719,476 @@ function updateDrought() {
       G.addLog('🔥 Severe drought — harvests nearly halved! Famine threatens.', 'log-crisis');
   } else if (G.droughtLevel > 0 && Math.random() < recover) {
     G.droughtLevel--;
-    G.addLog(G.droughtLevel === 0 ? '🌧 Rains return — harvests recovering.' : '🌦 Drought easing slightly.', 'log-good');
+    G.addLog(G.droughtLevel === 0 ? '🌧 Rains return — harvests recovering.' : '🌦 Drought easing.', 'log-good');
   }
 }
 
 // ─── STABILITY ───────────────────────────────────────────────
-// Social cohesion: 0-100. Scales all production. Modifies battle morale.
 function updateStability() {
-  let d = -1; // natural drift — order requires active maintenance
+  const avg = (G.factions.city.loyalty + G.factions.military.loyalty + G.factions.palatial.loyalty) / 3;
+  const target = Math.round(avg * 0.8 + G.dynasty.legitimacy * 0.2);
+  G.stability = Math.round(G.stability * 0.7 + target * 0.3);
+  G.stability = Math.max(0, Math.min(100, G.stability));
+}
 
-  // Food security
-  const grainNeed = popGrainConsumption() + garrisonGrainCost();
-  if (G.res.grain >= grainNeed + 6) d += 3;
-  else if (G.res.grain < grainNeed * 0.5) d -= 8;
-  else if (G.res.grain < grainNeed)       d -= 4;
+// ─── DYNASTY ─────────────────────────────────────────────────
+function updateDynasty() {
+  G.dynasty.reignTurns++;
+  G.dynasty.rulerAge += 0.5;  // half-year per turn
 
-  // Prosperity
-  if (G.res.gold >= 15) d += 2;
-  else if (G.res.gold <= 2) d -= 3;
+  // Natural legitimacy decay
+  let d = -1;
 
-  // Commerce: active trade deals signal healthy relations
-  const anyDeal = Object.values(G.regionState).some(rs => rs.diplo?.tradeDeal && !rs.destroyed);
-  if (anyDeal) d += 3;
+  // Boosts to legitimacy
+  const prod = computeProduction();
+  const need = popGrainConsumption() + garrisonGrainCost();
+  if (G.res.grain >= need * 2) d += 2;   // well fed people
+  if (G.res.gold >= 20)        d += 1;   // prosperous
+  if (G.buildings.palace >= 2) d += 1;  // grand palace
+  const anyAlliance = Object.values(G.regionState).some(rs => rs.diplo?.alliance && !rs.destroyed);
+  if (anyAlliance) d += 1;
 
-  // Walls (physical security)
-  if (G.walls >= 4) d += 1;
-  if (G.walls <= 1) d -= 2;
-
-  // Active wars (fear and disruption)
+  // Penalties
+  if (G.res.grain < need) d -= 4;
+  if (G.res.gold  <= 0)   d -= 3;
   const warCount = Object.values(G.regionState).filter(rs => rs.diplo?.atWar && !rs.destroyed).length;
-  d -= warCount * 3;
+  d -= warCount * 1;
 
-  G.stability = Math.max(0, Math.min(100, G.stability + d));
+  G.dynasty.legitimacy = Math.max(0, Math.min(100, G.dynasty.legitimacy + d));
+}
+
+function triggerCoupAttempt() {
+  G.addLog(`⚔ COUP ATTEMPT! The palatial faction moves against you!`, 'log-crisis');
+  // Player loses legitimacy; can spend gold/bronze to suppress
+  const suppressed = G.res.gold >= 15 || G.res.bronze >= 5;
+  if (suppressed) {
+    const goldUsed   = Math.min(G.res.gold, 15);
+    const bronzeUsed = Math.min(G.res.bronze, 5);
+    G.res.gold   -= goldUsed;
+    G.res.bronze -= bronzeUsed;
+    G.dynasty.legitimacy = Math.max(10, G.dynasty.legitimacy - 20);
+    G.factions.palatial.loyalty = Math.max(0, G.factions.palatial.loyalty - 25);
+    G.addLog(`Coup suppressed — spent ◎${goldUsed} ⚙${bronzeUsed} to buy loyalty. Legitimacy −20.`, 'log-event');
+  } else {
+    G.dynasty.legitimacy = Math.max(0, G.dynasty.legitimacy - 35);
+    G.stability = Math.max(0, G.stability - 20);
+    G.addLog(`Coup not fully suppressed! Legitimacy −35, stability −20.`, 'log-crisis');
+    if (G.dynasty.legitimacy <= 0) {
+      endGame(false, 'The palatial faction has deposed your dynasty. Another family takes the throne of Wilusa. Your line ends here.');
+      return true; // game over
+    }
+  }
+  return false;
 }
 
 // ─── FACTIONS ────────────────────────────────────────────────
 function updateFactions() {
-  const mil  = G.factions.military;
-  const peas = G.factions.peasants;
-  const warCount = Object.values(G.regionState)
-    .filter(rs => rs.diplo?.atWar && !rs.destroyed).length;
+  const grainNeed = popGrainConsumption() + garrisonGrainCost();
+  const warCount  = Object.values(G.regionState).filter(rs => rs.diplo?.atWar && !rs.destroyed).length;
 
-  // Military loyalty: needs gold, paid garrison, strong walls
+  // --- CITY FACTION (peasants + artisans + traders) ---
+  let cityD = 0;
+  // Tax policy: high tax angers city
+  if (G.taxRate === 'low')    cityD += 3;
+  if (G.taxRate === 'high')   cityD -= 4;
+  // Toll policy: high toll disrupts merchants
+  if (G.tollRate === 'high')  cityD -= 2;
+  if (G.tollRate === 'low')   cityD += 1;
+  // Food security
+  if (G.res.grain >= grainNeed * 2)        cityD += 3;
+  else if (G.res.grain < grainNeed)        cityD -= 6;
+  else if (G.res.grain < grainNeed * 1.5)  cityD -= 1;
+  if (G.droughtLevel > 0)  cityD -= G.droughtLevel * 2;
+  // Economy
+  if (G.res.gold >= 20) cityD += 1;
+  if (G.res.gold <= 3)  cityD -= 2;
+  if (warCount > 0)     cityD -= warCount;
+  G.factions.city.loyalty = Math.max(0, Math.min(100, G.factions.city.loyalty + cityD));
+
+  // --- MILITARY FACTION (militia + legionaries) ---
   let milD = 0;
-  if (G.res.gold >= 15)     milD += 2;
-  else if (G.res.gold <= 3) milD -= 5;
-  else if (G.res.gold <= 8) milD -= 2;
-  if (G.res.gold < garrisonGoldCost()) milD -= 4; // unpaid upkeep
-  if (G.walls >= 4)         milD += 1;
-  if (G.cavalryBonus >= 2)  milD += 2;
-  if (G.infantry >= 15)     milD += 1;
-  milD -= warCount * 2; // wars wear down soldiers
-  if (G.stability < 40)     milD -= 2;
-  mil.loyalty = Math.max(0, Math.min(100, mil.loyalty + milD));
+  if (G.res.gold >= 15)       milD += 2;
+  else if (G.res.gold <= 3)   milD -= 5;
+  if (G.res.bronze >= 5)      milD += 2;
+  if (G.buildings.walls >= 4) milD += 1;
+  if (G.cavalryBonus >= 2)    milD += 2;
+  if (G.pop.legionary >= 5)   milD += 1;
+  milD -= warCount * 2;
+  if (G.stability < 40) milD -= 2;
+  G.factions.military.loyalty = Math.max(0, Math.min(100, G.factions.military.loyalty + milD));
 
-  // Peasant loyalty: needs grain surplus, growing population, calm
-  let peasD = 0;
-  const grainNeed = popGrainConsumption();
-  if (G.res.grain >= grainNeed * 2)        peasD += 3;
-  else if (G.res.grain < grainNeed)        peasD -= 6;
-  else if (G.res.grain < grainNeed * 1.5)  peasD -= 1;
-  if (G.droughtLevel > 0)  peasD -= G.droughtLevel * 3;
-  if (G.population < 70)   peasD -= 2;
-  if (G.population >= 95)  peasD += 2;
-  if (G.res.gold >= 20)    peasD += 1; // prosperity trickles down
-  if (warCount > 1)        peasD -= 2;
-  peas.loyalty = Math.max(0, Math.min(100, peas.loyalty + peasD));
+  // --- PALATIAL FACTION (patricians) ---
+  let palD = 0;
+  if (G.buildings.palace >= 2)          palD += 3;
+  if (G.dynasty.legitimacy >= 70)       palD += 2;
+  else if (G.dynasty.legitimacy < 30)   palD -= 3;  // smells opportunity
+  if (G.res.gold >= 25) palD += 1;  // prosperity keeps them content
+  // They plot when legitimacy is low
+  if (G.dynasty.legitimacy < 40) palD += 3;  // paradoxically more active
+  palD = Math.max(-5, Math.min(3, palD));
+  G.factions.palatial.loyalty = Math.max(0, Math.min(100, G.factions.palatial.loyalty + palD));
 }
 
-function checkFactionUprisings() {
+function checkFactionCrises() {
+  const city = G.factions.city;
   const mil  = G.factions.military;
-  const peas = G.factions.peasants;
+  const pal  = G.factions.palatial;
 
-  if (mil.loyalty < 30 && Math.random() < 0.35) {
-    const goldLost = Math.min(G.res.gold, 8);
-    const infLost  = Math.min(G.infantry, Math.floor(Math.random() * 5) + 3);
-    G.res.gold  = Math.max(0, G.res.gold  - goldLost);
-    G.infantry  = Math.max(0, G.infantry  - infLost);
-    G.stability = Math.max(0, G.stability - 10);
-    mil.loyalty = Math.min(100, mil.loyalty + 15); // tension vented
-    G.addLog(`⚔ Military mutiny! ${infLost} infantry desert, ◎${goldLost} looted. Stability −10.`, 'log-crisis');
+  // City uprising
+  if (city.loyalty < 25 && Math.random() < 0.30) {
+    const grainLost = Math.min(G.res.grain, 8);
+    const goldLost  = Math.min(G.res.gold,  5);
+    G.res.grain -= grainLost; G.res.gold -= goldLost;
+    killPopUnits(2);
+    G.stability = Math.max(0, G.stability - 15);
+    city.loyalty = Math.min(100, city.loyalty + 18);
+    G.addLog(`👥 City uprising! Grain −${grainLost}, Gold −${goldLost}, 2 pop units lost, stability −15.`, 'log-crisis');
   }
 
-  if (peas.loyalty < 30 && Math.random() < 0.35) {
-    const grainLost = Math.min(G.res.grain, 5);
-    const popLost   = Math.floor(Math.random() * 6) + 4;
-    G.res.grain  = Math.max(0, G.res.grain  - grainLost);
-    G.population = Math.max(1, G.population - popLost);
-    G.stability  = Math.max(0, G.stability  - 15);
-    peas.loyalty = Math.min(100, peas.loyalty + 15); // tension vented
-    G.addLog(`👥 Peasant revolt! Population −${popLost}, grain −${grainLost}, stability −15.`, 'log-crisis');
+  // Military mutiny
+  if (mil.loyalty < 25 && Math.random() < 0.30) {
+    const goldLost = Math.min(G.res.gold, 10);
+    G.res.gold -= goldLost;
+    G.pop.militia   = Math.max(0, G.pop.militia   - Math.min(G.pop.militia, 3));
+    G.pop.legionary = Math.max(0, G.pop.legionary - Math.min(G.pop.legionary, 1));
+    G.stability = Math.max(0, G.stability - 12);
+    mil.loyalty = Math.min(100, mil.loyalty + 18);
+    G.addLog(`⚔ Military mutiny! Gold −${goldLost}, soldiers desert. Stability −12.`, 'log-crisis');
   }
+
+  // Palatial coup attempt
+  if (pal.loyalty > 70 && G.dynasty.legitimacy < 35 && Math.random() < 0.28) {
+    return triggerCoupAttempt();
+  }
+
+  return false;
 }
 
-// ─── RANDOM MINI-EVENTS ───────────────────────────────────────
-function recordPriceHistory() {
-  G.priceHistory.push({
-    turn: G.turn,
-    prices: {
-      grain:  getPrice('grain',  null),
-      copper: getPrice('copper', null),
-      tin:    getPrice('tin',    null),
-      bronze: getPrice('bronze', null),
-    },
+function appeaseFaction(factionId) {
+  const r = G.res;
+  if (factionId === 'city') {
+    if (r.grain < 5) { G.addLog('Not enough grain to appease the city faction.', 'log-event'); return; }
+    r.grain -= 5;
+    G.factions.city.loyalty = Math.min(100, G.factions.city.loyalty + 15);
+    G.addLog('Distributed grain to the people — city faction loyalty +15.', 'log-good');
+  } else if (factionId === 'military') {
+    if (r.bronze < 2) { G.addLog('Not enough bronze to appease the military.', 'log-event'); return; }
+    r.bronze -= 2;
+    G.factions.military.loyalty = Math.min(100, G.factions.military.loyalty + 15);
+    G.addLog('Issued arms to soldiers — military faction loyalty +15.', 'log-good');
+  } else if (factionId === 'palatial') {
+    if (r.gold < 8) { G.addLog('Not enough gold to appease the palatial faction.', 'log-event'); return; }
+    r.gold -= 8;
+    G.factions.palatial.loyalty = Math.min(100, G.factions.palatial.loyalty + 12);
+    G.dynasty.legitimacy = Math.min(100, G.dynasty.legitimacy + 3);
+    G.addLog('Gifts given to the patricians — palatial faction appeased. Legitimacy +3.', 'log-good');
+  }
+  renderAll();
+}
+
+// ─── POLICY ──────────────────────────────────────────────────
+function setTaxRate(rate) {
+  if (G.taxRate === rate) return;
+  G.taxRate = rate;
+  G.addLog(`Tax rate set to ${rate.toUpperCase()}.`, 'log-event');
+  renderAll();
+}
+
+function setTollRate(rate) {
+  if (G.tollRate === rate) return;
+  G.tollRate = rate;
+  G.addLog(`Toll rate set to ${rate.toUpperCase()}.`, 'log-event');
+  // Maritime nations react to toll changes
+  const maritime = ['cyprus','mycenae','crete','egypt','ugarit'];
+  maritime.forEach(mid => {
+    const md = G.regionState[mid]?.diplo;
+    if (!md || G.regionState[mid]?.destroyed || md.atWar) return;
+    md.score = clampScore(md.score + (rate === 'low' ? 3 : rate === 'high' ? -4 : 0));
   });
-  if (G.priceHistory.length > 15) G.priceHistory.shift();
+  renderAll();
 }
+
+// ─── DIPLOMATIC LETTERS ──────────────────────────────────────
+const LETTER_TYPES = {
+  GIFT: {
+    weight: 40,
+    generate(regionId) {
+      const r = REGIONS[regionId];
+      const gifts = [
+        { res:'grain',   amt:8,  text:'grain to feed your people' },
+        { res:'bronze',  amt:3,  text:'bronze for your armories' },
+        { res:'silver',  amt:4,  text:'silver as a token of friendship' },
+        { res:'timber',  amt:5,  text:'fine timber for your ships' },
+        { res:'horses',  amt:2,  text:'swift horses from our stables' },
+      ];
+      const gift = gifts[Math.floor(Math.random() * gifts.length)];
+      return {
+        type: 'GIFT',
+        greeting: Math.random() < 0.5 ? 'To my brother the king of Wilusa' : 'To my cousin the king of Troy',
+        body: `Greetings and great honour from the king of ${r.name.split(' ')[0]}. May our friendship endure as long as the mountains stand. We send you ${gift.text} as a sign of our goodwill.`,
+        offer: `Receive ${gift.amt} ${RES_META[gift.res]?.icon || ''} ${gift.res}.`,
+        onAccept: () => {
+          G.res[gift.res] = (G.res[gift.res] || 0) + gift.amt;
+          G.addLog(`Received gift from ${r.name}: +${gift.amt} ${gift.res}.`, 'log-good');
+          const d = G.regionState[regionId]?.diplo;
+          if (d) d.score = clampScore(d.score + 5);
+        },
+        onDecline: () => {
+          G.addLog(`Declined gift from ${r.name}. They seem offended.`, 'log-event');
+          const d = G.regionState[regionId]?.diplo;
+          if (d) d.score = clampScore(d.score - 8);
+        },
+      };
+    },
+  },
+  REQUEST_GRAIN: {
+    weight: 25,
+    generate(regionId) {
+      const r = REGIONS[regionId];
+      const amt = 6 + Math.floor(Math.random() * 8);
+      return {
+        type: 'REQUEST_GRAIN',
+        greeting: 'To my brother the king of Wilusa',
+        body: `Our people face great hardship. The harvests have failed and our granaries are empty. We implore you, great king, to send us grain as a sign of brotherhood between our peoples.`,
+        offer: `Send ${amt} 🌾 grain → +18 relations with ${r.name.split(' ')[0]}.`,
+        canAccept: () => G.res.grain >= amt,
+        onAccept: () => {
+          G.res.grain -= amt;
+          G.addLog(`Sent ${amt} grain to ${r.name}. Relations greatly improved.`, 'log-good');
+          const d = G.regionState[regionId]?.diplo;
+          if (d) d.score = clampScore(d.score + 18);
+        },
+        onDecline: () => {
+          G.addLog(`Refused grain relief to ${r.name}.`, 'log-event');
+          const d = G.regionState[regionId]?.diplo;
+          if (d) d.score = clampScore(d.score - 8);
+        },
+      };
+    },
+  },
+  REQUEST_MILITARY: {
+    weight: 20,
+    generate(regionId) {
+      const r = REGIONS[regionId];
+      const goldReward = 8 + Math.floor(Math.random() * 12);
+      const milCost    = 3 + Math.floor(Math.random() * 4);
+      return {
+        type: 'REQUEST_MILITARY',
+        greeting: 'To my brother the great king',
+        body: `War threatens our borders! Our enemies grow bold. We ask that you send soldiers to aid us in our time of need, as befits the bond between great kings. In return, we offer generous payment.`,
+        offer: `Send ${milCost} militia → receive ◎${goldReward} gold. Your troops will be lost.`,
+        canAccept: () => G.pop.militia >= milCost,
+        onAccept: () => {
+          G.pop.militia = Math.max(0, G.pop.militia - milCost);
+          G.res.gold += goldReward;
+          G.addLog(`Sent ${milCost} militia to aid ${r.name}. Received ◎${goldReward} gold.`, 'log-good');
+          const d = G.regionState[regionId]?.diplo;
+          if (d) d.score = clampScore(d.score + 20);
+        },
+        onDecline: () => {
+          G.addLog(`Refused military aid to ${r.name}.`, 'log-event');
+          const d = G.regionState[regionId]?.diplo;
+          if (d) d.score = clampScore(d.score - 12);
+        },
+      };
+    },
+  },
+  TRADE_PROPOSAL: {
+    weight: 15,
+    generate(regionId) {
+      const r = REGIONS[regionId];
+      return {
+        type: 'TRADE_PROPOSAL',
+        greeting: 'To the great king of Wilusa, whose city commands the strait',
+        body: `We propose a formal trade agreement between our peoples, to our mutual benefit. Lower your tolls and open your markets to our merchants, and we shall do likewise.`,
+        offer: `Sign trade deal (as diplomacy, but free) → 15% trade discount with ${r.name.split(' ')[0]}.`,
+        canAccept: () => !G.regionState[regionId]?.diplo?.tradeDeal,
+        onAccept: () => {
+          const d = G.regionState[regionId]?.diplo;
+          if (d) { d.tradeDeal = true; d.score = clampScore(d.score + 8); }
+          G.addLog(`Signed trade agreement with ${r.name}. 15% discount active.`, 'log-good');
+        },
+        onDecline: () => {
+          G.addLog(`Declined trade proposal from ${r.name}.`, 'log-event');
+          const d = G.regionState[regionId]?.diplo;
+          if (d) d.score = clampScore(d.score - 5);
+        },
+      };
+    },
+  },
+};
+
+function tryGenerateLetters() {
+  // Expire old letters
+  G.pendingLetters = G.pendingLetters.filter(l => l.expires > G.turn);
+
+  // Remove excess
+  if (G.pendingLetters.length >= 5) return;
+
+  // Each non-destroyed, non-war nation has a 15% chance to send a letter each turn
+  const senders = Object.keys(REGIONS).filter(id => {
+    if (id === 'troy') return false;
+    const rs = G.regionState[id];
+    if (!rs || rs.destroyed) return false;
+    if (rs.diplo?.atWar) return false;
+    if (!DIPLO_PROFILE[id]) return false;
+    // Don't send if already has a pending letter
+    if (G.pendingLetters.some(l => l.regionId === id)) return false;
+    return true;
+  });
+
+  for (const regionId of senders) {
+    if (Math.random() > 0.15) continue;
+
+    // Pick letter type by weight
+    const total = Object.values(LETTER_TYPES).reduce((s, t) => s + t.weight, 0);
+    let r = Math.random() * total;
+    let chosen = null;
+    for (const [key, lt] of Object.entries(LETTER_TYPES)) {
+      r -= lt.weight;
+      if (r <= 0) { chosen = key; break; }
+    }
+    if (!chosen) chosen = 'GIFT';
+
+    const lt   = LETTER_TYPES[chosen];
+    const data = lt.generate(regionId);
+
+    G.pendingLetters.push({
+      id:       G.nextLetterId++,
+      regionId,
+      expires:  G.turn + 4,
+      ...data,
+    });
+  }
+
+  updateLetterBadge();
+}
+
+function updateLetterBadge() {
+  const badge = document.getElementById('letter-badge');
+  const btn   = document.getElementById('letters-btn');
+  if (!badge || !btn) return;
+  const count = G.pendingLetters.length;
+  badge.textContent = count;
+  badge.style.display = count > 0 ? 'inline' : 'none';
+  btn.style.borderColor = count > 0 ? '#c89020' : '';
+}
+
+function acceptLetter(id) {
+  const letter = G.pendingLetters.find(l => l.id === id);
+  if (!letter) return;
+  if (letter.canAccept && !letter.canAccept()) {
+    G.addLog('Cannot fulfill this request right now.', 'log-event');
+    return;
+  }
+  letter.onAccept();
+  G.pendingLetters = G.pendingLetters.filter(l => l.id !== id);
+  updateLetterBadge();
+  renderLetterModal();
+  renderAll();
+}
+
+function declineLetter(id) {
+  const letter = G.pendingLetters.find(l => l.id === id);
+  if (!letter) return;
+  letter.onDecline();
+  G.pendingLetters = G.pendingLetters.filter(l => l.id !== id);
+  updateLetterBadge();
+  renderLetterModal();
+  renderAll();
+}
+
+function openLetterModal() {
+  renderLetterModal();
+  document.getElementById('letter-modal').style.display = 'flex';
+}
+
+function renderLetterModal() {
+  const container = document.getElementById('lmod-list');
+  if (!container) return;
+  if (G.pendingLetters.length === 0) {
+    container.innerHTML = '<p class="letter-no-letters">No letters awaiting your response.</p>';
+    return;
+  }
+  container.innerHTML = G.pendingLetters.map(letter => {
+    const region = REGIONS[letter.regionId];
+    const canAcc = !letter.canAccept || letter.canAccept();
+    return `<div class="letter-card">
+      <div class="letter-sender">${region.icon} From: ${region.name}</div>
+      <div class="letter-greeting">"${letter.greeting},"</div>
+      <div class="letter-body">${letter.body}</div>
+      <div class="letter-offer">${letter.offer}</div>
+      <div class="letter-expires">⏳ Expires in ${letter.expires - G.turn} turn(s)</div>
+      <div class="letter-actions">
+        <button class="letter-btn-accept" ${!canAcc ? 'disabled' : ''} onclick="acceptLetter(${letter.id})">✓ Accept</button>
+        <button class="letter-btn-decline" onclick="declineLetter(${letter.id})">✗ Decline</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── NATION WARS ─────────────────────────────────────────────
+function updateNationWars() {
+  // Resolve existing wars
+  G.nationWars = G.nationWars.filter(w => {
+    if (G.turn >= w.endTurn) {
+      G.disruption = Math.max(0, G.disruption - 0.2);
+      G.addLog(`War between ${REGIONS[w.attackerId]?.name.split(' ')[0] || w.attackerId} and ${REGIONS[w.defenderId]?.name.split(' ')[0] || w.defenderId} ends.`, 'log-event');
+      return false;
+    }
+    G.disruption = Math.min(5, G.disruption + 0.1);
+    return true;
+  });
+
+  // Start new wars
+  if (Math.random() < 0.12 && G.turn > 2) {
+    const candidates = Object.keys(DIPLO_PROFILE).filter(id => {
+      const rs = G.regionState[id];
+      return rs && !rs.destroyed && DIPLO_PROFILE[id].canWar;
+    });
+    if (candidates.length >= 2) {
+      const ai  = Math.floor(Math.random() * candidates.length);
+      let   di  = Math.floor(Math.random() * (candidates.length - 1));
+      if (di >= ai) di++;
+      const a = candidates[ai], d = candidates[di];
+      const duration = 4 + Math.floor(Math.random() * 6);
+      G.nationWars.push({ attackerId: a, defenderId: d, startTurn: G.turn, endTurn: G.turn + duration });
+      G.disruption = Math.min(5, G.disruption + 0.15);
+      G.addLog(`⚔ ${REGIONS[a].name.split(' ')[0]} goes to war with ${REGIONS[d].name.split(' ')[0]}! Trade disruption rises.`, 'log-event');
+    }
+  }
+}
+
+// ─── MINI-EVENTS ─────────────────────────────────────────────
+const RES_META = {
+  grain:      { name:'Grain',      icon:'🌾' },
+  copper:     { name:'Copper',     icon:'⚒'  },
+  tin:        { name:'Tin',        icon:'🔩' },
+  bronze:     { name:'Bronze',     icon:'⚙'  },
+  silver:     { name:'Silver',     icon:'🥈' },
+  olive_oil:  { name:'Olive Oil',  icon:'🫒' },
+  pottery:    { name:'Pottery',    icon:'🏺' },
+  timber:     { name:'Timber',     icon:'🪵' },
+  horses:     { name:'Horses',     icon:'🐎' },
+  purple_dye: { name:'Purple Dye', icon:'🟣' },
+};
 
 const MINI_EVENTS = [
-  { w: 12, fn: () => { G.res.grain += 8;  G.addLog('🌾 Bumper harvest — grain stores +8.', 'log-good'); } },
-  { w:  7, fn: () => { G.res.grain = Math.max(0, G.res.grain - 6); G.stability = Math.max(0, G.stability - 6);
-                       G.addLog('🔥 Granary fire! Grain −6, stability shaken.', 'log-crisis'); } },
-  { w:  9, fn: () => { G.res.gold += 7;   G.addLog('⛵ Rich merchant fleet arrives — ◎7 in toll duties.', 'log-good'); } },
-  { w:  5, fn: () => { G.population = Math.max(1, G.population - 8); G.stability = Math.max(0, G.stability - 12);
-                       G.addLog('💀 Plague strikes the city — population −8, stability −12.', 'log-crisis'); } },
-  { w:  8, fn: () => { G.res.gold = Math.max(0, G.res.gold - 4);
-                       G.addLog('🌊 Storm sinks a merchant ship — ◎4 lost.', 'log-event'); } },
-  { w:  8, fn: () => { const opts=['grain','bronze','copper','tin']; const r=opts[Math.floor(Math.random()*opts.length)];
-                       G.res[r]=(G.res[r]||0)+4; G.addLog(`🎁 Foreign envoy brings gifts — +4 ${RES_META[r]?.icon||r}.`, 'log-good'); } },
-  { w:  7, fn: () => { G.stability = Math.min(100, G.stability + 10);
-                       G.addLog('🎉 Festival season — city morale restored, stability +10.', 'log-good'); } },
-  { w: 53, fn: () => {} },  // no event (weighted blank for ~53% chance of nothing)
+  { w:10, fn:() => { G.res.grain += 10; G.addLog('🌾 Bumper harvest — grain stores +10.', 'log-good'); } },
+  { w: 7, fn:() => { G.res.grain = Math.max(0, G.res.grain - 6); G.stability = Math.max(0, G.stability - 6);
+                     G.addLog('🔥 Granary fire! Grain −6, stability shaken.', 'log-crisis'); } },
+  { w: 9, fn:() => { G.res.gold += 7; G.addLog('⛵ Rich merchant fleet arrives — ◎7 in toll duties.', 'log-good'); } },
+  { w: 4, fn:() => { killPopUnits(1); G.stability = Math.max(0, G.stability - 10);
+                     G.addLog('💀 Plague strikes the city — 1 pop unit lost, stability −10.', 'log-crisis'); } },
+  { w: 8, fn:() => { G.res.gold = Math.max(0, G.res.gold - 4);
+                     G.addLog('🌊 Storm sinks a merchant ship — ◎4 lost.', 'log-event'); } },
+  { w: 8, fn:() => { const opts=['grain','bronze','copper','tin']; const r=opts[Math.floor(Math.random()*opts.length)];
+                     G.res[r]=(G.res[r]||0)+4; G.addLog(`🎁 Foreign envoy brings gifts — +4 ${RES_META[r]?.icon||r}.`, 'log-good'); } },
+  { w: 6, fn:() => { G.stability = Math.min(100, G.stability + 10);
+                     G.addLog('🎉 Festival season — city morale restored, stability +10.', 'log-good'); } },
+  { w: 5, fn:() => { G.dynasty.legitimacy = Math.min(100, G.dynasty.legitimacy + 8);
+                     G.addLog('📜 A bard composes an epic of your dynasty — legitimacy +8.', 'log-good'); } },
+  { w:53, fn:() => {} },
 ];
 
 function rollMiniEvent() {
@@ -845,6 +1196,19 @@ function rollMiniEvent() {
   const total = MINI_EVENTS.reduce((s, e) => s + e.w, 0);
   let r = Math.random() * total;
   for (const ev of MINI_EVENTS) { r -= ev.w; if (r <= 0) { ev.fn(); return; } }
+}
+
+function recordPriceHistory() {
+  G.priceHistory.push({
+    turn: G.turn,
+    prices: {
+      grain:  getPrice('grain'),
+      copper: getPrice('copper'),
+      tin:    getPrice('tin'),
+      bronze: getPrice('bronze'),
+    },
+  });
+  if (G.priceHistory.length > 30) G.priceHistory.shift();
 }
 
 // ─── APPLY EVENT EFFECTS ─────────────────────────────────────
@@ -872,10 +1236,11 @@ function applyEffects(effects) {
       case 'destroy_region':
         G.regionState[eff.regionId].destroyed = true;
         G.regionState[eff.regionId].relation = 'destroyed';
+        G.disruption = Math.min(5, G.disruption + 0.3);
         summary.push({ text: eff.desc, cls: 'eff-bad' });
         break;
       case 'damage_walls':
-        G.walls = Math.max(1, G.walls - eff.amount);
+        G.buildings.walls = Math.max(1, G.buildings.walls - eff.amount);
         summary.push({ text: eff.desc, cls: 'eff-bad' });
         break;
       case 'tribute_double':
@@ -884,10 +1249,10 @@ function applyEffects(effects) {
         break;
       case 'free_from_vassalage':
         G.vassalOfHatti = false;
-        summary.push({ text: 'Troy is FREE! No more tribute.', cls: 'eff-good' });
+        G.dynasty.legitimacy = Math.min(100, G.dynasty.legitimacy + 10);
+        summary.push({ text: 'Troy is FREE! No more tribute. Legitimacy +10.', cls: 'eff-good' });
         break;
       case 'siege':
-        // handled specially in event modal callback
         summary.push({ text: eff.desc, cls: 'eff-bad' });
         break;
     }
@@ -895,16 +1260,17 @@ function applyEffects(effects) {
   return summary;
 }
 
-// ─── CANVAS MAP RENDERING ────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════
+//  CANVAS MAP RENDERING  (preserved verbatim)
+// ═══════════════════════════════════════════════════════════════
 const canvas = document.getElementById('map-canvas');
 const ctx    = canvas.getContext('2d');
 
 let scaleX = 1, scaleY = 1;
 let hoveredRegion    = null;
 let selectedRegionId = null;
-let armySelected     = false;  // true when player clicked their army pawn
-
-
+let armySelected     = false;
 
 function resizeCanvas() {
   const container = document.getElementById('map-area');
@@ -914,22 +1280,14 @@ function resizeCanvas() {
   scaleY = canvas.height / REF_H;
 }
 
-function sp(x, y) {
-  // scale reference coords to canvas coords
-  return [x * scaleX, y * scaleY];
-}
+function sp(x, y) { return [x * scaleX, y * scaleY]; }
 
-// ─── PROCEDURAL LAND/SEA MAP ─────────────────────────────────
-// Draws a geographic background map. Coordinates are in REF space
-// (1200×800) matching the equirectangular projection:
-//   x = (lon − 19) / 45 * 1200   y = (48 − lat) / 30 * 800
 function drawLandMasses() {
   const s = Math.min(scaleX, scaleY);
   const LAND = '#c4ad78';
   const SEA  = '#1a3550';
   const COAST = '#8a7240';
 
-  // Sea fill
   ctx.fillStyle = SEA;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -946,46 +1304,35 @@ function drawLandMasses() {
     if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 0.8 * s; ctx.stroke(); }
   }
 
-  // ── Europe + Greek peninsula ───────────────────────────────
   poly([[0,0],[200,0],[213,107],[213,173],[147,200],[133,213],[107,253],
         [107,280],[93,307],[67,320],[40,280],[27,253],[40,213],[0,213]],
        LAND, COAST);
 
-  // ── Anatolia (Turkey) ─────────────────────────────────────
   poly([[267,173],[427,93],[614,93],[653,133],[653,173],[560,187],[507,200],
         [453,213],[440,267],[440,320],[373,320],[320,320],[267,320],[240,307],
         [213,280],[213,253],[213,200],[267,173]],
        LAND, COAST);
 
-  // ── Eastern land mass: Syria + Arabia + Iraq + Iran + N Africa ──
-  // (all connected via Sinai peninsula; seas punched back below)
   poly([[453,320],[440,387],[413,453],[347,467],[267,440],[133,413],
         [0,440],[0,800],[1200,800],[1200,107],[987,160],[854,173],[694,133],
         [653,173],[613,227],[560,280],[507,280],[453,320]],
        LAND, COAST);
 
-  // ── Islands ───────────────────────────────────────────────
   poly([[120,327],[147,327],[173,333],[200,331],[219,341],[187,349],[147,349],[120,344]],
-       LAND, COAST);  // Crete
+       LAND, COAST);
   poly([[347,327],[387,327],[413,333],[427,347],[413,360],[360,360],[347,347]],
-       LAND, COAST);  // Cyprus
+       LAND, COAST);
 
-  // ── Punch sea areas back over land ────────────────────────
-  // Black Sea
   poly([[227,160],[240,120],[373,107],[507,93],[600,120],[627,160],
         [573,173],[480,187],[347,187],[280,173],[227,173]], SEA);
-  // Caspian Sea
   poly([[827,27],[920,27],[933,107],[907,187],[920,253],[840,293],
         [800,267],[813,213],[867,160]], SEA);
-  // Red Sea (narrow wedge)
   poly([[360,480],[413,493],[440,547],[480,613],[493,667],[520,733],
         [520,800],[480,800],[467,747],[453,680],[453,613],[427,560],
         [400,507],[360,480]], SEA);
-  // Persian Gulf
   poly([[747,480],[827,480],[907,533],[1000,573],[1013,613],[1000,640],
         [960,587],[880,533],[787,493],[747,480]], SEA);
 
-  // ── Subtle vignette ───────────────────────────────────────
   const vig = ctx.createRadialGradient(
     canvas.width*0.5, canvas.height*0.5, canvas.height*0.25,
     canvas.width*0.5, canvas.height*0.5, canvas.width*0.75);
@@ -1000,15 +1347,11 @@ function drawMap() {
   const w = canvas.width, h = canvas.height;
   const s = Math.min(scaleX, scaleY);
 
-  // ── 1. Background — programmatic geographic map ───────────
   drawLandMasses();
-
-  // ── 2. Regions ────────────────────────────────────────────
   Object.entries(REGIONS).forEach(([id, region]) => drawRegion(id, region));
+  drawRivers();
+  drawMountains();
 
-
-
-  // ── 5. Sea labels ─────────────────────────────────────────
   ctx.save();
   ctx.font = `italic ${Math.round(8.5 * s)}px Georgia`;
   ctx.textAlign = 'center';
@@ -1030,22 +1373,17 @@ function drawMap() {
   });
   ctx.restore();
 
-  // ── 6. City dot markers ────────────────────────────────────
-  const cities = CITY_LIST;
-
   ctx.save();
-  cities.forEach(c => {
+  CITY_LIST.forEach(c => {
     const rs = G.regionState[c.region];
     const destroyed = rs?.destroyed;
     const [x, y] = sp(c.x, c.y);
 
-    // Dot
     ctx.beginPath();
     ctx.arc(x, y, 2.8 * s, 0, Math.PI * 2);
     ctx.fillStyle = destroyed ? 'rgba(180,60,40,0.5)' : 'rgba(220,195,140,0.7)';
     ctx.fill();
 
-    // Label
     ctx.font        = `${Math.round(7.5 * s)}px Georgia`;
     ctx.textAlign   = 'center';
     ctx.textBaseline = 'bottom';
@@ -1054,7 +1392,6 @@ function drawMap() {
     ctx.fillStyle   = destroyed ? 'rgba(180,80,60,0.55)' : 'rgba(230,210,160,0.65)';
     ctx.fillText(c.label, x, y - 4 * s);
 
-    // Destroyed X
     if (destroyed) {
       ctx.font      = `bold ${Math.round(11 * s)}px serif`;
       ctx.fillStyle = 'rgba(210,60,40,0.7)';
@@ -1064,22 +1401,18 @@ function drawMap() {
   });
   ctx.restore();
 
-  // ── 7. Troy special marker ────────────────────────────────
   const [tx, ty] = sp(182, 162);
   ctx.save();
-  // Outer glow ring
   ctx.beginPath();
   ctx.arc(tx, ty, 13 * s, 0, Math.PI * 2);
   ctx.strokeStyle = 'rgba(212,160,23,0.25)';
   ctx.lineWidth   = 4 * s;
   ctx.stroke();
-  // Inner ring
   ctx.beginPath();
   ctx.arc(tx, ty, 9 * s, 0, Math.PI * 2);
   ctx.strokeStyle = '#d4a017';
   ctx.lineWidth   = 1.5 * s;
   ctx.stroke();
-  // Star
   ctx.font         = `${Math.round(13 * s)}px serif`;
   ctx.fillStyle    = '#f0c030';
   ctx.textAlign    = 'center';
@@ -1087,7 +1420,6 @@ function drawMap() {
   ctx.shadowColor  = 'rgba(212,160,23,0.8)';
   ctx.shadowBlur   = 6;
   ctx.fillText('★', tx, ty);
-  // TROY label
   ctx.font         = `bold ${Math.round(9 * s)}px Georgia`;
   ctx.fillStyle    = '#f0d060';
   ctx.shadowBlur   = 5;
@@ -1095,18 +1427,15 @@ function drawMap() {
   ctx.fillText('TROY', tx, ty - 11 * s);
   ctx.restore();
 
-  // ── 8. Army pawn at Troy ──────────────────────────────────
-  const [pawX, pawY] = sp(210, 200);  // slightly offset from Troy center
+  const [pawX, pawY] = sp(210, 200);
   const pawR = 9 * s;
   ctx.save();
   if (armySelected) {
-    // Pulse ring
     ctx.beginPath();
     ctx.arc(pawX, pawY, pawR + 5 * s, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(240,220,60,0.7)';
     ctx.lineWidth = 2 * s;
     ctx.stroke();
-    // Highlight attackable cities
     CITY_LIST.forEach(c => {
       const rs = G.regionState[c.region];
       if (rs?.destroyed) return;
@@ -1118,7 +1447,6 @@ function drawMap() {
       ctx.stroke();
     });
   }
-  // Pawn body
   ctx.beginPath();
   ctx.arc(pawX, pawY, pawR, 0, Math.PI * 2);
   ctx.fillStyle = armySelected ? '#e0c020' : '#9a7010';
@@ -1128,14 +1456,12 @@ function drawMap() {
   ctx.strokeStyle = armySelected ? '#fff080' : '#c89018';
   ctx.lineWidth = 1 * s;
   ctx.stroke();
-  // Sword icon inside
   ctx.shadowBlur = 0;
   ctx.font = `${Math.round(10 * s)}px serif`;
   ctx.fillStyle = armySelected ? '#3a2000' : '#f0d060';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('⚔', pawX, pawY);
-  // Troop count badge
   const tot = getTotalGarrison();
   ctx.font = `bold ${Math.round(6.5 * s)}px sans-serif`;
   ctx.fillStyle = '#fff';
@@ -1143,7 +1469,6 @@ function drawMap() {
   ctx.fillText(tot, pawX + 7 * s, pawY + 5 * s);
   ctx.restore();
 
-  // Army selection hint text
   if (armySelected) {
     ctx.save();
     ctx.font = `italic ${Math.round(8.5 * s)}px Georgia`;
@@ -1156,10 +1481,8 @@ function drawMap() {
     ctx.restore();
   }
 
-  // ── 9. Compass rose ───────────────────────────────────────
   drawCompassRose(w - 44 * s, h - 44 * s, 26 * s);
 
-  // ── 9. Vignette ───────────────────────────────────────────
   const vig = ctx.createRadialGradient(w*0.5, h*0.5, h*0.3, w*0.5, h*0.5, w*0.75);
   vig.addColorStop(0,   'rgba(0,0,0,0)');
   vig.addColorStop(0.8, 'rgba(0,0,0,0)');
@@ -1178,36 +1501,28 @@ function drawRivers() {
   ctx.shadowColor = 'rgba(50,130,200,0.3)';
   ctx.shadowBlur  = 3;
 
-  // ── Nile: from upper Egypt north to delta ─────────────────
   ctx.beginPath();
   let p = sp(328, 498); ctx.moveTo(p[0], p[1]);
   p = sp(326, 470); ctx.lineTo(p[0], p[1]);
   p = sp(322, 440); ctx.lineTo(p[0], p[1]);
-  // Bend at Thebes
   p = sp(318, 410); ctx.lineTo(p[0], p[1]);
-  // Delta fan
   p = sp(312, 385); ctx.lineTo(p[0], p[1]);
   ctx.stroke();
-  // Delta branches
   ctx.lineWidth = 1.2 * s;
-  // West branch
   ctx.beginPath();
   p = sp(312, 385); ctx.moveTo(p[0], p[1]);
   p = sp(298, 368); let cp1 = sp(302, 372);
   ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
   ctx.stroke();
-  // East branch
   ctx.beginPath();
   p = sp(312, 385); ctx.moveTo(p[0], p[1]);
   p = sp(325, 368); cp1 = sp(320, 372);
   ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
   ctx.stroke();
 
-  // ── Euphrates: Anatolia → Syria → Babylon ────────────────
   ctx.lineWidth = 1.6 * s;
   ctx.beginPath();
   p = sp(390, 145); ctx.moveTo(p[0], p[1]);
-  // Curve south-east through Syria
   let cp2;
   p = sp(450, 220); cp1 = sp(420, 170);
   ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
@@ -1219,7 +1534,6 @@ function drawRivers() {
   ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
   ctx.stroke();
 
-  // ── Tigris: Anatolia → Assyria → Babylon ─────────────────
   ctx.beginPath();
   p = sp(450, 148); ctx.moveTo(p[0], p[1]);
   p = sp(498, 205); cp1 = sp(475, 170); cp2 = sp(488, 190);
@@ -1232,7 +1546,6 @@ function drawRivers() {
   ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
   ctx.stroke();
 
-  // River labels
   ctx.font      = `italic ${Math.round(6.5 * s)}px Georgia`;
   ctx.fillStyle = 'rgba(80,160,210,0.45)';
   ctx.textAlign = 'center';
@@ -1251,7 +1564,6 @@ function drawMountains() {
   ctx.strokeStyle = 'rgba(160,130,80,0.30)';
   ctx.lineWidth   = 0.8 * s;
 
-  // Draw a single mountain triangle symbol
   function mtn(rx, ry, size) {
     const [x, y] = sp(rx, ry);
     const sz = size * s;
@@ -1262,7 +1574,6 @@ function drawMountains() {
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    // Snow cap
     ctx.fillStyle = 'rgba(220,210,190,0.18)';
     ctx.beginPath();
     ctx.moveTo(x, y - sz);
@@ -1273,30 +1584,11 @@ function drawMountains() {
     ctx.fillStyle = 'rgba(180,150,100,0.22)';
   }
 
-  // Taurus range (southern edge of Hatti/Anatolia)
-  [[248,262],[268,256],[290,252],[312,248],[334,245],[356,243],[378,241],[400,240],[422,238],[445,236]].forEach(
-    ([x,y]) => mtn(x, y, 5)
-  );
-
-  // Zagros (eastern Mesopotamia / Elam border)
-  [[628,265],[635,292],[640,318],[644,344],[647,370]].forEach(
-    ([x,y]) => mtn(x, y, 5)
-  );
-
-  // Caucasus (north of Hatti, Black Sea south coast)
-  [[505,95],[525,89],[548,86],[570,89],[592,95]].forEach(
-    ([x,y]) => mtn(x, y, 4.5)
-  );
-
-  // Lebanon / Anti-Lebanon (Canaan/Ugarit border)
-  [[408,258],[412,272],[415,286]].forEach(
-    ([x,y]) => mtn(x, y, 4)
-  );
-
-  // Pontic mountains (Kashka territory)
-  [[195,118],[222,112],[252,108],[282,106],[312,105]].forEach(
-    ([x,y]) => mtn(x, y, 4)
-  );
+  [[248,262],[268,256],[290,252],[312,248],[334,245],[356,243],[378,241],[400,240],[422,238],[445,236]].forEach(([x,y]) => mtn(x, y, 5));
+  [[628,265],[635,292],[640,318],[644,344],[647,370]].forEach(([x,y]) => mtn(x, y, 5));
+  [[505,95],[525,89],[548,86],[570,89],[592,95]].forEach(([x,y]) => mtn(x, y, 4.5));
+  [[408,258],[412,272],[415,286]].forEach(([x,y]) => mtn(x, y, 4));
+  [[195,118],[222,112],[252,108],[282,106],[312,105]].forEach(([x,y]) => mtn(x, y, 4));
 
   ctx.restore();
 }
@@ -1306,14 +1598,12 @@ function drawCompassRose(cx, cy, r) {
   ctx.save();
   ctx.translate(cx, cy);
 
-  // Outer circle
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
   ctx.strokeStyle = 'rgba(210,185,120,0.35)';
   ctx.lineWidth   = 1 * s;
   ctx.stroke();
 
-  // Cardinal arrow points
   const dirs = [
     { angle: -Math.PI/2, label:'N', long: r*0.85, short: r*0.35 },
     { angle:  Math.PI/2, label:'S', long: r*0.70, short: r*0.30 },
@@ -1337,21 +1627,18 @@ function drawCompassRose(cx, cy, r) {
     ctx.lineTo(base2[0], base2[1]);
     ctx.closePath();
 
-    const isNorth = d.label === 'N';
-    ctx.fillStyle   = isNorth ? 'rgba(210,50,50,0.70)' : 'rgba(200,175,110,0.55)';
+    ctx.fillStyle   = d.label === 'N' ? 'rgba(210,50,50,0.70)' : 'rgba(200,175,110,0.55)';
     ctx.strokeStyle = 'rgba(0,0,0,0.4)';
     ctx.lineWidth   = 0.5 * s;
     ctx.fill();
     ctx.stroke();
   });
 
-  // Center dot
   ctx.beginPath();
   ctx.arc(0, 0, r * 0.10, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(200,175,110,0.75)';
   ctx.fill();
 
-  // N label
   ctx.font         = `bold ${Math.round(r * 0.38)}px Georgia`;
   ctx.fillStyle    = 'rgba(210,60,60,0.85)';
   ctx.textAlign    = 'center';
@@ -1370,7 +1657,6 @@ function drawRegion(id, region) {
   const isPlayer = region.isPlayer;
   const destroyed = rs?.destroyed;
 
-  // Build path
   ctx.beginPath();
   region.poly.forEach(([rx, ry], i) => {
     const [x, y] = sp(rx, ry);
@@ -1380,18 +1666,15 @@ function drawRegion(id, region) {
 
   const s = Math.min(scaleX, scaleY);
 
-  // Base fill
   let fillColor = region.fillColor;
   if (destroyed)      fillColor = '#160e0e';
   else if (hov)       fillColor = lighten(region.fillColor, 0.38);
   else if (sel)       fillColor = lighten(region.fillColor, 0.22);
-  // Semi-transparent on hover/select so land texture shows through, solid otherwise
   ctx.globalAlpha = (hov || sel) ? 0.75 : 0.88;
   ctx.fillStyle = fillColor;
   ctx.fill();
   ctx.globalAlpha = 1.0;
 
-  // Border
   ctx.strokeStyle = destroyed ? '#2a1818'
                   : sel       ? '#f0e080'
                   : hov       ? lighten(region.borderColor, 0.5)
@@ -1401,11 +1684,9 @@ function drawRegion(id, region) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Diplomatic glow overlay
   if (!destroyed && !isPlayer) {
     const d = rs?.diplo;
     if (d?.atWar) {
-      // Red war glow — rebuild path
       ctx.beginPath();
       region.poly.forEach(([rx, ry], i) => {
         const [px, py] = sp(rx, ry);
@@ -1436,12 +1717,10 @@ function drawRegion(id, region) {
     }
   }
 
-  // Region label
   if (!isPlayer) {
     const [cx, cy] = sp(region.cx, region.cy);
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-
     const fontSize = Math.round(9.5 * s);
     ctx.font        = `bold ${fontSize}px Georgia`;
     ctx.shadowColor = 'rgba(0,0,0,0.8)';
@@ -1461,7 +1740,6 @@ function drawRegion(id, region) {
 }
 
 function lighten(hex, amount) {
-  // Parse hex to rgb
   let r = parseInt(hex.slice(1,3),16);
   let g = parseInt(hex.slice(3,5),16);
   let b = parseInt(hex.slice(5,7),16);
@@ -1485,7 +1763,6 @@ function pointInPoly(px, py, poly) {
 }
 
 function getRegionAtPoint(px, py) {
-  // Check all regions (in reverse draw order so top-most wins)
   const ids = Object.keys(REGIONS);
   for (let i = ids.length - 1; i >= 0; i--) {
     const id = ids[i];
@@ -1495,7 +1772,6 @@ function getRegionAtPoint(px, py) {
   return null;
 }
 
-// Canvas mouse events
 canvas.addEventListener('mousemove', e => {
   const rect = canvas.getBoundingClientRect();
   const px = e.clientX - rect.left;
@@ -1519,6 +1795,8 @@ canvas.addEventListener('mousemove', e => {
         .map(([res,_]) => `${r.exports[res].icon} ${res} @ ◎${getPrice(res, id)}`)
         .join(', ');
       if (exports) html += `<br><span style="color:#6a8050">Exports: ${exports}</span>`;
+      const distCost = getTradeDistanceCost(id);
+      if (distCost > 0) html += `<br><span style="color:#c08030">Distance cost: ◎${distCost}</span>`;
     }
     tooltip.innerHTML = html;
     tooltip.style.display = 'block';
@@ -1535,7 +1813,6 @@ canvas.addEventListener('mouseleave', () => {
   drawMap();
 });
 
-// Returns city from CITY_LIST if click lands within ~13px of a city dot
 function getCityAtPoint(px, py) {
   for (const c of CITY_LIST) {
     const [cx, cy] = sp(c.x, c.y);
@@ -1549,7 +1826,6 @@ canvas.addEventListener('click', e => {
   const px = e.clientX - rect.left;
   const py = e.clientY - rect.top;
 
-  // Check click on army pawn (ref: 210,200)
   const [pawX, pawY] = sp(210, 200);
   const s = Math.min(scaleX, scaleY);
   if (Math.hypot(px - pawX, py - pawY) <= 11 * s) {
@@ -1558,7 +1834,6 @@ canvas.addEventListener('click', e => {
     return;
   }
 
-  // If army is selected, a city click triggers an expedition
   if (armySelected) {
     const city = getCityAtPoint(px, py);
     armySelected = false;
@@ -1576,7 +1851,6 @@ canvas.addEventListener('click', e => {
     return;
   }
 
-  // Normal region click
   const id = getRegionAtPoint(px, py);
   if (!id || id === 'troy') return;
   selectedRegionId = id;
@@ -1584,8 +1858,9 @@ canvas.addEventListener('click', e => {
   renderRegionInfo(id);
 });
 
+
 // ═══════════════════════════════════════════════════════════════
-//  DIPLOMACY SYSTEM
+//  DIPLOMACY SYSTEM (preserved verbatim)
 // ═══════════════════════════════════════════════════════════════
 
 function clampScore(s) { return Math.max(-100, Math.min(100, Math.round(s))); }
@@ -1617,71 +1892,58 @@ function getAllianceBonus() {
   }, 0);
 }
 
-// ── Per-turn AI diplomacy updates ────────────────────────────
 function updateDiplomacyPerTurn() {
   Object.entries(DIPLO_PROFILE).forEach(([id, prof]) => {
     const rs = G.regionState[id];
     if (!rs || rs.destroyed || !rs.diplo) return;
     const d = rs.diplo;
 
-    if (d.atWar) return; // score frozen during active war
+    if (d.atWar) return;
 
-    // Natural drift
     d.score = clampScore(d.score + prof.driftPerTurn);
 
-    // Trade bonus: player traded with this region last turn
     if (G.lastTradedRegionId === id) {
       d.score = clampScore(d.score + 5);
     }
 
-    // Hatti: tribute bonus / penalty applied in payTribute()
-
-    // Random demand: hostile regions occasionally send demands
-    if (!d.pendingDemand && d.score < 10 && d.score > (prof.warThreshold ?? -999) + 15 && Math.random() < 0.12) {
+    if (!d.pendingDemand && d.score < 10 && d.score > (prof.warThreshold ?? -999) + 15 && Math.random() < 0.10) {
       const resource = prof.interests[0] || 'bronze';
       const qty = id === 'hatti' ? 3 : 2;
-      d.pendingDemand = { resource, qty, deadline: G.turn + 2 };
+      d.pendingDemand = { resource, qty, deadline: G.turn + 3 };
       G.addLog(`${REGIONS[id].name} demands ${qty} ${resource}. Fulfill or relations suffer.`, 'log-event');
     }
 
-    // Process pending demand expiry
     if (d.pendingDemand && G.turn > d.pendingDemand.deadline) {
       d.score = clampScore(d.score - 12);
       G.addLog(`${REGIONS[id].name}'s demand went unanswered — relations suffer.`, 'log-crisis');
       d.pendingDemand = null;
     }
 
-    // War declaration
     if (prof.canWar && prof.warThreshold !== null && d.score <= prof.warThreshold) {
       d.atWar = true;
       d.warDeclaredTurn = G.turn;
-      d.warAttackTurn   = G.turn - 1; // allow attack this same turn
+      d.warAttackTurn   = G.turn - 1;
       G.addLog(`⚔ ${REGIONS[id].name} has DECLARED WAR on Troy!`, 'log-crisis');
     }
   });
 
-  // Hellespont toll policy — maritime regions react
-  if (G.tollPolicy !== 'normal') {
+  if (G.tollRate !== 'normal') {
     const maritime = ['cyprus','mycenae','crete','egypt','ugarit'];
     maritime.forEach(mid => {
       const md = G.regionState[mid]?.diplo;
       if (!md || G.regionState[mid]?.destroyed || md.atWar) return;
-      md.score = clampScore(md.score + (G.tollPolicy === 'low' ? 2 : -3));
+      md.score = clampScore(md.score + (G.tollRate === 'low' ? 2 : -3));
     });
   }
 
-  // Clear trade record for next turn
   G.lastTradedRegionId = null;
 }
 
-// ── Hatti military power decays with the Late Bronze Age collapse ─────
-// Turn 1 (1250 BC): ~95 — peak empire; Turn 11 (1180 BC): ~30 — barely intact
 function getHattiMilitary() {
-  const base = 95 - (G.turn - 1) * 6;  // 95 → 35 over turns 1-11
+  const base = 95 - (G.turn - 1) * 3;
   return Math.max(30, Math.round(base));
 }
 
-// ── War battle configs injected into the battle queue ─────────
 function getDiplomaticWarBattles() {
   const battles = [];
   Object.entries(DIPLO_PROFILE).forEach(([id, prof]) => {
@@ -1689,7 +1951,6 @@ function getDiplomaticWarBattles() {
     if (!rs || rs.destroyed || !rs.diplo) return;
     const d = rs.diplo;
     if (!d.atWar) return;
-    // Attack every 2 turns to avoid overwhelming the player
     if (d.warAttackTurn !== null && G.turn - d.warAttackTurn < 2) return;
 
     d.warAttackTurn = G.turn;
@@ -1706,11 +1967,9 @@ function getDiplomaticWarBattles() {
   return battles;
 }
 
-// ── Player diplomatic actions ─────────────────────────────────
 function diploGoldGift(regionId, amount) {
   const rs   = G.regionState[regionId];
   const d    = rs.diplo;
-  const prof = DIPLO_PROFILE[regionId];
   if (!d || G.res.gold < amount) return;
   G.res.gold -= amount;
   const gain = amount <= 5 ? 9 : amount <= 15 ? 22 : 35;
@@ -1819,7 +2078,6 @@ function diploRefuseDemand(regionId) {
   renderDiploDetail(regionId);
 }
 
-// ── Modal rendering ───────────────────────────────────────────
 let selectedDiploId = null;
 
 function openDiploModal() {
@@ -1873,7 +2131,7 @@ function renderDiploList() {
 
 function selectDiploRegion(id) {
   selectedDiploId = id;
-  renderDiploList();       // re-render to update .selected class
+  renderDiploList();
   renderDiploDetail(id);
 }
 
@@ -1908,45 +2166,39 @@ function renderDiploDetail(id) {
   const color  = getDiploColor(d.score, d.atWar);
   const barPct = Math.round(((d.score + 100) / 200) * 100);
 
-  // Pending demand info
   let demandHtml = '';
   if (d.pendingDemand) {
     const dm = d.pendingDemand;
     const canFulfill = (G.res[dm.resource] || 0) >= dm.qty;
     const meta = RES_META[dm.resource] || { icon:'?', name: dm.resource };
     demandHtml = `<div class="dd-demand-box">
-      📨 <b>DEMAND:</b> ${REGIONS[id].name} demands ${dm.qty} ${meta.icon} ${meta.name} (deadline: Year ${dm.deadline}).
+      📨 <b>DEMAND:</b> ${REGIONS[id].name} demands ${dm.qty} ${meta.icon} ${meta.name} (deadline: Turn ${dm.deadline}).
       <br>Fulfill to gain +20 relations, or refuse for −18.
       <div class="dd-actions" style="margin-top:8px">
         <button class="dd-action-btn" ${!canFulfill?'disabled':''} onclick="diploFulfillDemand('${id}')">
           ✓ Fulfill Demand <span class="action-cost">${meta.icon}${dm.qty}</span>
         </button>
-        <button class="dd-action-btn" onclick="diploRefuseDemand('${id}')">
-          ✗ Refuse
-        </button>
+        <button class="dd-action-btn" onclick="diploRefuseDemand('${id}')">✗ Refuse</button>
       </div>
     </div>`;
   }
 
-  // Action buttons
   const r = G.res;
   const actions = [];
 
   if (!d.atWar) {
-    actions.push({ label:'Send Small Gold Gift',  cost:'◎5',   enabled: r.gold >= 5,                    cls:'', fn:`diploGoldGift('${id}',5)` });
-    actions.push({ label:'Send Large Gold Gift',  cost:'◎15',  enabled: r.gold >= 15,                   cls:'', fn:`diploGoldGift('${id}',15)` });
-    actions.push({ label:'Send Gold Delegation',  cost:'◎30',  enabled: r.gold >= 30,                   cls:'', fn:`diploGoldGift('${id}',30)` });
-    actions.push({ label:'Send Bronze Tribute (×1)', cost:'⚙1', enabled: r.bronze >= 1,                 cls:'', fn:`diploBronzeGift('${id}',1)` });
-    actions.push({ label:'Send Bronze Tribute (×3)', cost:'⚙3', enabled: r.bronze >= 3,                 cls:'', fn:`diploBronzeGift('${id}',3)` });
-    actions.push({ label:'Send Grain Relief',     cost:'🌾5',  enabled: r.grain >= 5,                   cls:'', fn:`diploGrainGift('${id}')` });
-    if (!d.tradeDeal && d.score >= 35) {
-      actions.push({ label:'Sign Trade Agreement', cost:'◎10 · Requires 35+', enabled: r.gold >= 10,    cls:'', fn:`diploSignTradeDeal('${id}')` });
-    }
-    if (!d.alliance && d.score >= 62) {
-      actions.push({ label:'Propose Alliance',     cost:'◎20 · Requires 62+', enabled: r.gold >= 20,   cls:'btn-alliance', fn:`diploFormAlliance('${id}')` });
-    }
+    actions.push({ label:'Send Small Gold Gift',  cost:'◎5',  enabled: r.gold >= 5,                  cls:'', fn:`diploGoldGift('${id}',5)` });
+    actions.push({ label:'Send Large Gold Gift',  cost:'◎15', enabled: r.gold >= 15,                 cls:'', fn:`diploGoldGift('${id}',15)` });
+    actions.push({ label:'Send Gold Delegation',  cost:'◎30', enabled: r.gold >= 30,                 cls:'', fn:`diploGoldGift('${id}',30)` });
+    actions.push({ label:'Send Bronze Tribute ×1', cost:'⚙1', enabled: r.bronze >= 1,               cls:'', fn:`diploBronzeGift('${id}',1)` });
+    actions.push({ label:'Send Bronze Tribute ×3', cost:'⚙3', enabled: r.bronze >= 3,               cls:'', fn:`diploBronzeGift('${id}',3)` });
+    actions.push({ label:'Send Grain Relief',     cost:'🌾5',  enabled: r.grain >= 5,                cls:'', fn:`diploGrainGift('${id}')` });
+    if (!d.tradeDeal && d.score >= 35)
+      actions.push({ label:'Sign Trade Agreement', cost:'◎10 · Req. 35+', enabled: r.gold >= 10,    cls:'', fn:`diploSignTradeDeal('${id}')` });
+    if (!d.alliance && d.score >= 62)
+      actions.push({ label:'Propose Alliance',     cost:'◎20 · Req. 62+', enabled: r.gold >= 20,   cls:'btn-alliance', fn:`diploFormAlliance('${id}')` });
   } else {
-    actions.push({ label:'Offer Peace Treaty',    cost:'◎10 + ⚙5',           enabled: r.gold >= 10 && r.bronze >= 5, cls:'btn-peace', fn:`diploOfferPeace('${id}')` });
+    actions.push({ label:'Offer Peace Treaty', cost:'◎10 + ⚙5', enabled: r.gold >= 10 && r.bronze >= 5, cls:'btn-peace', fn:`diploOfferPeace('${id}')` });
   }
 
   const actHtml = actions.map(a =>
@@ -1966,635 +2218,338 @@ function renderDiploDetail(id) {
     </div>
     <div class="dd-bar-bg"><div class="dd-bar-fill" style="width:${barPct}%;background:${color}"></div></div>
     <p class="dd-desc">${region.desc}<br><br><span style="color:#4a3818">Interests: ${prof.interests.map(r => RES_META[r]?.icon || r).join(' ')}</span></p>
-    ${d.atWar ? `<div class="dd-war-box">⚔ <b>ACTIVE WAR</b> — ${region.name} armies assault Troy periodically. Offer a peace treaty or defeat them in battle to end the conflict.</div>` : ''}
-    ${d.tradeDeal ? `<div class="dd-benefit-box">📜 Trade Agreement active — <b>15% discount</b> on all purchases from this region.</div>` : ''}
-    ${d.alliance  ? `<div class="dd-benefit-box">🤝 Alliance active — <b>+10 garrison bonus</b> when defending against any attack.</div>` : ''}
+    ${d.atWar ? `<div class="dd-war-box">⚔ <b>ACTIVE WAR</b> — ${region.name} armies assault Troy periodically.</div>` : ''}
+    ${d.tradeDeal ? `<div class="dd-benefit-box">📜 Trade Agreement active — <b>15% discount</b> on all purchases.</div>` : ''}
+    ${d.alliance  ? `<div class="dd-benefit-box">🤝 Alliance active — <b>+10 garrison bonus</b> when defending.</div>` : ''}
     ${demandHtml}
     <div class="dd-section-label">Diplomatic Actions</div>
     <div class="dd-actions">${actHtml}</div>
   </div>`;
 }
 
-// ─── UI RENDERING ────────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════
+//  UI RENDERING
+// ═══════════════════════════════════════════════════════════════
+
 function renderAll() {
   renderTopBar();
-  renderCityStats();
-  renderActions();
-  renderMarket();
-  renderPoliticsPanel();
-  renderPriceChart();
+  renderCityPanel();
+  renderLog();
   drawMap();
 }
 
 function renderTopBar() {
-  document.getElementById('r-grain').textContent  = G.res.grain;
-  document.getElementById('r-copper').textContent = G.res.copper;
-  document.getElementById('r-tin').textContent    = G.res.tin;
-  document.getElementById('r-bronze').textContent = G.res.bronze;
-  document.getElementById('r-gold').textContent   = G.res.gold;
+  const el = id => document.getElementById(id);
 
-  const prod = getTroyProduction();
-  const needGrain = popGrainConsumption();
-  const grainNet  = prod.grain - needGrain - garrisonGrainCost();
-  setRate('rr-grain',  grainNet);
-  setRate('rr-copper', prod.copper);
-  setRate('rr-tin',    prod.tin);
-  setRate('rr-bronze', prod.bronze);
-  setRate('rr-gold',   prod.gold - garrisonGoldCost());
+  el('r-grain').textContent  = G.res.grain;
+  el('r-copper').textContent = G.res.copper;
+  el('r-tin').textContent    = G.res.tin;
+  el('r-bronze').textContent = G.res.bronze;
+  el('r-gold').textContent   = G.res.gold;
+  el('r-silver').textContent = G.res.silver;
+  el('disruption-val').textContent = G.disruption.toFixed(1);
 
-  const year = 1250 - (G.turn - 1) * 7;
-  document.getElementById('year-label').textContent  = `${year} BC`;
-  document.getElementById('turn-label').textContent  = `Year ${G.turn} of ${G.maxTurns}`;
-  document.getElementById('vassal-status').textContent =
-    G.vassalOfHatti ? `Vassal of Hatti · ${G.tributeDoubleThisTurn?6:3}⚙ tribute/yr` : 'Free City';
-  document.getElementById('vassal-status').style.color = G.vassalOfHatti ? '#8a5a20' : '#50a050';
+  el('year-label').textContent = `${bcYear()} BC`;
+  el('turn-label').textContent = `Turn ${G.turn} of ${G.maxTurns} · ${seasonLabel()}`;
+
+  const nextBtn = el('next-turn-btn');
+  if (nextBtn) nextBtn.textContent = `End ${isSummer() ? 'Summer' : 'Winter'} ▶`;
 }
 
-function setRate(id, val) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.textContent = (val >= 0 ? '+' : '') + val;
-  el.className   = 'res-rate' + (val < 0 ? ' neg' : val === 0 ? ' warn' : '');
+function renderCityPanel() {
+  renderDynastyBar();
+  renderPopSection();
+  renderFactionsSection();
+  renderBuildingsSection();
+  renderPolicySection();
+  renderActionsSection();
 }
 
-function renderCityStats() {
-  // Population bar
-  const popPct = (G.population / 100) * 100;
-  document.getElementById('bar-pop').style.width  = popPct + '%';
-  document.getElementById('val-pop').textContent  = G.population;
+function renderDynastyBar() {
+  const el = id => document.getElementById(id);
+  const d = G.dynasty;
 
-  // Walls pips
-  const pips = document.getElementById('wall-pips');
-  pips.innerHTML = '';
-  for (let i = 1; i <= G.maxWalls; i++) {
-    const d = document.createElement('div');
-    d.className = 'wall-pip' + (i <= G.walls ? ' active' : '');
-    pips.appendChild(d);
+  if (el('season-icon'))  el('season-icon').textContent = isSummer() ? '☀' : '❄';
+  if (el('season-label')) {
+    el('season-label').textContent = isSummer() ? 'Summer' : 'Winter';
+    el('season-label').className   = isSummer() ? '' : 'winter';
   }
-  document.getElementById('val-walls').textContent  = `${G.walls}/${G.maxWalls}`;
-
-  // Militia bar
-  const militiaPct = Math.min(100, (G.militia / 40) * 100);
-  document.getElementById('bar-militia').style.width = militiaPct + '%';
-  document.getElementById('val-militia').textContent = G.militia;
-
-  // Infantry bar
-  const infantryPct = Math.min(100, (G.infantry / 30) * 100);
-  document.getElementById('bar-infantry').style.width = infantryPct + '%';
-  document.getElementById('val-infantry').textContent = G.infantry;
-
-  // Stability bar
-  const stabEl = document.getElementById('bar-stability');
-  if (stabEl) {
-    stabEl.style.width      = G.stability + '%';
-    stabEl.style.background = G.stability >= 70 ? '#3a8f50' : G.stability >= 45 ? '#a07820' : '#b03828';
-  }
-  const stabValEl = document.getElementById('val-stability');
-  if (stabValEl) {
-    const stabLabel = G.stability >= 80 ? 'Stable' : G.stability >= 60 ? 'Steady' : G.stability >= 40 ? 'Tense' : 'CRISIS';
-    stabValEl.textContent = `${G.stability} — ${stabLabel}`;
-    stabValEl.style.color = G.stability >= 60 ? '#6a9050' : G.stability >= 40 ? '#a07820' : '#b03828';
+  if (el('ruler-name'))    el('ruler-name').textContent  = d.rulerName;
+  if (el('vassal-status')) {
+    el('vassal-status').textContent = G.vassalOfHatti ? 'Vassal of Hatti' : 'Free City of Troy';
+    el('vassal-status').style.color = G.vassalOfHatti ? '#8a5a20' : '#50a050';
   }
 
-  // Chariot display
-  const charEl = document.getElementById('val-chariots');
-  if (charEl) charEl.textContent = `${G.cavalryBonus}/5`;
-  const charBarEl = document.getElementById('bar-chariots');
-  if (charBarEl) charBarEl.style.width = (G.cavalryBonus / 5 * 100) + '%';
-
-  // Upkeep breakdown
-  const goldUp  = garrisonGoldCost();
-  const grainUp = garrisonGrainCost();
-  const upkeepEl = document.getElementById('garrison-upkeep');
-  if (upkeepEl) {
-    const ironTag = G.ironWorking ? ' · ⚒ Iron' : '';
-    upkeepEl.textContent = `Upkeep: ◎${goldUp}/yr  🌾${grainUp}/yr  · Str: ${getGarrisonStrength()}${ironTag}`;
-    upkeepEl.style.color = grainUp > getTroyProduction().grain - popGrainConsumption() ? '#c05030' : '#6a5020';
+  const legitPct = d.legitimacy;
+  if (el('legit-bar')) el('legit-bar').style.width = legitPct + '%';
+  if (el('legit-bar')) {
+    el('legit-bar').style.background =
+      legitPct >= 60 ? '#d4a017' : legitPct >= 35 ? '#c06030' : '#c03030';
   }
-
-  // Production & policy summary
-  const prodEl = document.getElementById('production-summary');
-  if (prodEl) {
-    const p = G.production;
-    const parts = [];
-    if (p.farmland) parts.push(`🌾+${p.farmland*2}/yr`);
-    if (p.tollgate) parts.push(`◎+${p.tollgate*3}/yr`);
-    if (p.smithy)   parts.push(`⚙+${p.smithy}/yr`);
-    const droughtTag = ['', ' · ☀Dry', ' · 🔥Drought'][G.droughtLevel];
-    const tollTag = G.tollPolicy !== 'normal' ? ` · Toll:${G.tollPolicy.toUpperCase()}` : '';
-    prodEl.textContent = (parts.length ? `City: ${parts.join('  ')}` : 'City: no upgrades') + droughtTag + tollTag;
-  }
+  if (el('ruler-legitimacy')) el('ruler-legitimacy').textContent = d.legitimacy;
 }
 
-function renderActions() {
+function renderPopSection() {
+  const container = document.getElementById('pop-classes');
+  if (!container) return;
+
+  const POP_DEFS = [
+    { key:'peasant',   icon:'🌾', name:'Peasants',    color:'#6a9038', tip:'Grain producers (summer only)' },
+    { key:'artisan',   icon:'⚒',  name:'Artisans',    color:'#c87030', tip:'Bronze producers' },
+    { key:'militia',   icon:'🗡',  name:'Militia',     color:'#8060a0', tip:'City defenders (cheap)' },
+    { key:'legionary', icon:'⚔',  name:'Legionaries', color:'#c04030', tip:'Elite soldiers (bronze-equipped)' },
+    { key:'trader',    icon:'🚢', name:'Traders',     color:'#3080c0', tip:'Gold income from toll trade' },
+    { key:'patrician', icon:'👑', name:'Patricians',  color:'#d4a017', tip:'Palatial faction — may plot coups' },
+  ];
+
+  const total = popTotal();
+  document.getElementById('pop-total').textContent = `${total} units · ${total * 100} people`;
+
+  container.innerHTML = POP_DEFS.map(def => {
+    const count  = G.pop[def.key];
+    const barPct = Math.max(0, Math.min(100, (count / Math.max(1, total)) * 100));
+    const canRecruit = def.key === 'militia'   && G.pop.peasant >= 1 && G.res.gold >= 1 && G.res.grain >= 1;
+    const canTrain   = def.key === 'legionary' && G.pop.militia >= 1 && G.res.bronze >= 1;
+    const canArtisan = def.key === 'artisan'   && G.pop.peasant >= 1 && G.res.gold >= 2 && G.pop.artisan < G.buildings.workshop * 3 + 3;
+    const canDemobM  = def.key === 'militia'   && G.pop.militia > 0;
+    const canDemobL  = def.key === 'legionary' && G.pop.legionary > 0;
+
+    let btns = '';
+    if (def.key === 'peasant') {
+      btns = `<button class="pc-btn" title="Convert to militia (◎1 🌾1)" ${G.pop.peasant < 1 || G.res.gold < 1 || G.res.grain < 1 ? 'disabled' : ''} onclick="convertPeasantToMilitia()">⚔</button>
+              <button class="pc-btn" title="Convert to artisan (◎2)" ${G.pop.peasant < 1 || G.res.gold < 2 || G.pop.artisan >= G.buildings.workshop*3+3 ? 'disabled' : ''} onclick="convertPeasantToArtisan()">⚒</button>`;
+    } else if (def.key === 'militia') {
+      btns = `<button class="pc-btn" title="Upgrade to legionary (⚙1)" ${G.pop.militia < 1 || G.res.bronze < 1 ? 'disabled' : ''} onclick="convertMilitiaToLegionary()">▲</button>
+              <button class="pc-btn" title="Demobilize to peasant" ${G.pop.militia < 1 ? 'disabled' : ''} onclick="demobilize('militia')">▼</button>`;
+    } else if (def.key === 'legionary') {
+      btns = `<button class="pc-btn" title="Demobilize to militia" ${G.pop.legionary < 1 ? 'disabled' : ''} onclick="demobilize('legionary')">▼</button>`;
+    }
+
+    return `<div class="pop-class-row" title="${def.tip}">
+      <span class="pc-icon">${def.icon}</span>
+      <span class="pc-name">${def.name}</span>
+      <span class="pc-count">${count}</span>
+      <div class="pc-bar-wrap"><div class="pc-bar" style="width:${barPct}%;background:${def.color}"></div></div>
+      ${btns}
+    </div>`;
+  }).join('');
+}
+
+function renderFactionsSection() {
+  const container = document.getElementById('factions-list');
+  if (!container) return;
+
+  const FACTION_DEFS = [
+    {
+      key: 'city', icon: '🏙', name: 'City',
+      members: 'Peasants · Artisans · Traders',
+      anger: 'High taxes, food lack, disruption',
+      color: () => loyaltyColor(G.factions.city.loyalty),
+    },
+    {
+      key: 'military', icon: '⚔', name: 'Military',
+      members: 'Militia · Legionaries',
+      anger: 'Low pay, no weapons, no walls',
+      color: () => loyaltyColor(G.factions.military.loyalty),
+    },
+    {
+      key: 'palatial', icon: '🏛', name: 'Palatial',
+      members: 'Patricians',
+      anger: 'Low legitimacy — plots coups',
+      color: () => loyaltyColor(G.factions.palatial.loyalty),
+    },
+  ];
+
+  function loyaltyColor(v) {
+    if (v >= 75) return '#50a050';
+    if (v >= 55) return '#6a9050';
+    if (v >= 35) return '#a07820';
+    if (v >= 20) return '#c05030';
+    return '#d03030';
+  }
+
+  function loyaltyLabel(v) {
+    if (v >= 80) return 'Loyal';
+    if (v >= 60) return 'Content';
+    if (v >= 40) return 'Restless';
+    if (v >= 20) return 'Angry';
+    return 'MUTINOUS';
+  }
+
+  container.innerHTML = FACTION_DEFS.map(def => {
+    const loyalty = G.factions[def.key].loyalty;
+    const color   = loyaltyColor(loyalty);
+    const label   = loyaltyLabel(loyalty);
+    const warning = loyalty < 25 ? ' <span class="faction-risk">⚠ CRISIS</span>' : '';
+
+    // Appease cost display
+    const appeaseCost = def.key === 'city' ? '🌾5' : def.key === 'military' ? '⚙2' : '◎8';
+    const canAppease  =
+      def.key === 'city'     ? G.res.grain  >= 5 :
+      def.key === 'military' ? G.res.bronze >= 2 :
+                               G.res.gold   >= 8;
+
+    return `<div class="faction-row-new" title="${def.members}&#10;Angry at: ${def.anger}">
+      <span class="fn-icon">${def.icon}</span>
+      <span class="fn-name">${def.name}</span>
+      <div class="fn-bar-wrap"><div class="fn-bar" style="width:${loyalty}%;background:${color}"></div></div>
+      <span class="fn-val">${loyalty}</span>
+      <span class="fn-status" style="color:${color}">${label}${warning}</span>
+      <button class="fn-btn" ${!canAppease ? 'disabled' : ''} onclick="appeaseFaction('${def.key}')">Appease ${appeaseCost}</button>
+    </div>`;
+  }).join('');
+}
+
+function renderBuildingsSection() {
+  const container = document.getElementById('buildings-list');
+  if (!container) return;
+
+  const rows = Object.entries(BUILDING_DEFS).map(([type, def]) => {
+    const level   = G.buildings[type];
+    const maxLev  = def.maxLevel;
+    const cost    = def.cost(level);
+    const canBuild = level < maxLev && Object.entries(cost).every(([r, amt]) => (G.res[r] || 0) >= amt);
+    const costStr  = Object.entries(cost).map(([r, amt]) => `${RES_META[r]?.icon || r}${amt}`).join(' ');
+
+    const pips = Array.from({length: maxLev}, (_, i) =>
+      `<div class="bld-pip${i < level ? ' active' : ''}"></div>`
+    ).join('');
+
+    return `<div class="building-row">
+      <span class="bld-icon">${def.icon}</span>
+      <span class="bld-name">${def.name}</span>
+      <div class="bld-pips">${pips}</div>
+      <span class="bld-level">${level}/${maxLev}</span>
+      <button class="bld-btn" ${!canBuild ? 'disabled' : ''} onclick="buildBuilding('${type}')" title="${def.desc}">
+        Build ${level < maxLev ? costStr : '(max)'}
+      </button>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = rows;
+}
+
+function renderPolicySection() {
+  const container = document.getElementById('policy-content');
+  if (!container) return;
+
+  const taxIncome = Math.round(G.pop.trader * 1.5 * getTaxGoldMult());
+  const tollIncome = Math.round(3 + getTollGoldBonus());
+
+  container.innerHTML = `
+    <div class="policy-row">
+      <span class="pol-label">Tax (◎${taxIncome}/t)</span>
+      <button class="pol-btn ${G.taxRate === 'low'    ? 'active' : ''}" onclick="setTaxRate('low')">Low<br><small style="font-size:0.75em;color:#6a8a38">City+</small></button>
+      <button class="pol-btn ${G.taxRate === 'normal' ? 'active' : ''}" onclick="setTaxRate('normal')">Normal</button>
+      <button class="pol-btn ${G.taxRate === 'high'   ? 'active' : ''}" onclick="setTaxRate('high')">High<br><small style="font-size:0.75em;color:#c05030">City-</small></button>
+    </div>
+    <div class="policy-row">
+      <span class="pol-label">Toll (◎${tollIncome}/t)</span>
+      <button class="pol-btn ${G.tollRate === 'low'    ? 'active' : ''}" onclick="setTollRate('low')">Low<br><small style="font-size:0.75em;color:#6a8a38">Sea+</small></button>
+      <button class="pol-btn ${G.tollRate === 'normal' ? 'active' : ''}" onclick="setTollRate('normal')">Normal</button>
+      <button class="pol-btn ${G.tollRate === 'high'   ? 'active' : ''}" onclick="setTollRate('high')">High<br><small style="font-size:0.75em;color:#c05030">Sea-</small></button>
+    </div>`;
+}
+
+function renderActionsSection() {
   const container = document.getElementById('action-list');
+  if (!container) return;
+
   const r = G.res;
-  const p = G.production;
+  const prod = computeProduction();
+  const grainNet = prod.grain - popGrainConsumption() - garrisonGrainCost();
 
   const actions = [
-    // ── Production Upgrades ──────────────────────────────────
-    { type: 'header', label: '🏗 Production Upgrades' },
+    { type:'header', label:'🌾 PRODUCTION (this turn)' },
+    { type:'info',   label:`☀ Grain: +${prod.grain} (net ${grainNet >= 0 ? '+' : ''}${grainNet}) · ◎ Gold: +${prod.gold} (−${garrisonGoldCost()} upkeep) · ⚙ Bronze: +${prod.bronze}` },
+
+    { type:'header', label:'⚙ CRAFTING' },
     {
-      id: 'farm-up',
-      label: `🌾 Expand Farmland  (Lv ${p.farmland}/3)`,
-      cost:  `◎8 → +2🌾/yr`,
-      enabled: p.farmland < 3 && r.gold >= 8,
-      fn: () => {
-        r.gold -= 8; p.farmland++;
-        G.addLog(`Farmland expanded. Grain production +2/yr (now ${4 + p.farmland * 2}/yr).`, 'log-good');
-        renderAll();
-      }
+      id:'craft1', label:'⚙ Forge Bronze ×1', cost:'⚒2 🔩1', enabled: canCraft(1),
+      fn: () => craftBronze(1),
     },
     {
-      id: 'toll-up',
-      label: `🚢 Fortify Toll Gate  (Lv ${p.tollgate}/2)`,
-      cost:  `◎12 → +3◎/yr`,
-      enabled: p.tollgate < 2 && r.gold >= 12,
-      fn: () => {
-        r.gold -= 12; p.tollgate++;
-        G.addLog(`Toll gate fortified. Gold income +3/yr (now ${5 + p.tollgate * 3}/yr).`, 'log-good');
-        renderAll();
-      }
+      id:'craft2', label:'⚙ Forge Bronze ×2', cost:'⚒4 🔩2', enabled: canCraft(2),
+      fn: () => craftBronze(2),
     },
     {
-      id: 'smithy-up',
-      label: `⚒ Build Bronze Smithy  (Lv ${p.smithy}/2)`,
-      cost:  `◎8 ⚒3 → +1⚙/yr`,
-      enabled: p.smithy < 2 && r.gold >= 8 && r.copper >= 3,
-      fn: () => {
-        r.gold -= 8; r.copper -= 3; p.smithy++;
-        G.addLog(`Bronze smithy upgraded. Auto-produces ${p.smithy} bronze/yr.`, 'log-good');
-        renderAll();
-      }
+      id:'craft3', label:'⚙ Forge Bronze ×3', cost:'⚒6 🔩3', enabled: canCraft(3),
+      fn: () => craftBronze(3),
     },
-    // ── Crafting ─────────────────────────────────────────────
-    { type: 'header', label: '⚙ Crafting' },
+
+    { type:'header', label:'🗡 MILITIA & CAVALRY' },
     {
-      id: 'craft2',
-      label: `⚙ Forge Bronze ×2`,
-      cost: `⚒4 🔩2`,
-      enabled: canCraft(2),
-      fn: () => { craftBronze(2); renderAll(); }
-    },
-    {
-      id: 'craft1',
-      label: `⚙ Forge Bronze ×1`,
-      cost: `⚒2 🔩1`,
-      enabled: canCraft(1),
-      fn: () => { craftBronze(1); renderAll(); }
-    },
-    {
-      id: 'craft3',
-      label: `⚙ Forge Bronze ×3`,
-      cost: `⚒6 🔩3`,
-      enabled: canCraft(3),
-      fn: () => { craftBronze(3); renderAll(); }
-    },
-    // ── Militia (cheap; grain + gold only) ───────────────────
-    { type: 'header', label: `👥 Militia  ×${G.militia}  — upkeep ◎${Math.floor(G.militia/6)}/yr 🌾${Math.floor(G.militia/8)}/yr` },
-    {
-      id: 'recruit-militia-5',
-      label: `👥 Levy Militia +5`,
-      cost: `🌾2 ◎1`,
-      enabled: r.grain >= 2 && r.gold >= 1,
-      fn: () => {
-        r.grain -= 2; r.gold -= 1;
-        G.militia += 5;
-        G.addLog('Levied 5 militia. Cheap but lightly armed.', 'log-good');
-        renderAll();
-      }
-    },
-    {
-      id: 'recruit-militia-10',
-      label: `👥 Levy Militia +10`,
-      cost: `🌾4 ◎2`,
-      enabled: r.grain >= 4 && r.gold >= 2,
-      fn: () => {
-        r.grain -= 4; r.gold -= 2;
-        G.militia += 10;
-        G.addLog('Levied 10 militia.', 'log-good');
-        renderAll();
-      }
-    },
-    {
-      id: 'disband-militia-5',
-      label: `🏚 Disband Militia −5`,
-      cost: `saves ◎1 🌾1/yr`,
-      enabled: G.militia >= 5,
-      fn: () => {
-        G.militia -= 5;
-        G.addLog('Disbanded 5 militia. Upkeep reduced.', 'log-event');
-        renderAll();
-      }
-    },
-    // ── Infantry (bronze-equipped; 1.6× combat strength) ─────
-    { type: 'header', label: `⚔ Infantry  ×${G.infantry}  — upkeep ◎${Math.floor(G.infantry/4)}/yr 🌾${Math.floor(G.infantry/6)}/yr` },
-    {
-      id: 'recruit-inf-5',
-      label: `⚔ Equip Infantry +5`,
-      cost: `🌾2 ◎2 ⚙1`,
-      enabled: r.grain >= 2 && r.gold >= 2 && r.bronze >= 1,
-      fn: () => {
-        r.grain -= 2; r.gold -= 2; r.bronze -= 1;
-        G.infantry += 5;
-        G.addLog('Equipped 5 infantry with bronze arms. Combat strength +8.', 'log-good');
-        renderAll();
-      }
-    },
-    {
-      id: 'recruit-inf-10',
-      label: `⚔ Equip Infantry +10`,
-      cost: `🌾3 ◎3 ⚙2`,
-      enabled: r.grain >= 3 && r.gold >= 3 && r.bronze >= 2,
-      fn: () => {
-        r.grain -= 3; r.gold -= 3; r.bronze -= 2;
-        G.infantry += 10;
-        G.addLog('Equipped 10 infantry. Combat strength +16.', 'log-good');
-        renderAll();
-      }
-    },
-    {
-      id: 'disband-inf-5',
-      label: `🏚 Disband Infantry −5`,
-      cost: `saves ◎1 🌾1/yr`,
-      enabled: G.infantry >= 5,
-      fn: () => {
-        G.infantry -= 5;
-        G.addLog('Disbanded 5 infantry. Upkeep reduced.', 'log-event');
-        renderAll();
-      }
-    },
-    // ── Hellespont Toll Policy ────────────────────────────────
-    { type: 'header', label: `⚖ HELLESPONT TOLL POLICY  [currently: ${G.tollPolicy.toUpperCase()}]` },
-    {
-      id: 'toll-low',
-      label: `🚢 Low Tolls  (−◎3/yr · maritime diplo +2/yr)`,
-      cost: G.tollPolicy === 'low' ? '✓ Active' : '',
-      enabled: G.tollPolicy !== 'low',
-      fn: () => { G.tollPolicy = 'low'; G.addLog('Toll gates lowered — ships pass freely. Maritime relations improve.', 'log-event'); renderAll(); }
-    },
-    {
-      id: 'toll-normal',
-      label: `🚢 Normal Tolls  (standard ◎5/yr base)`,
-      cost: G.tollPolicy === 'normal' ? '✓ Active' : '',
-      enabled: G.tollPolicy !== 'normal',
-      fn: () => { G.tollPolicy = 'normal'; G.addLog('Toll gates set to standard rates.', 'log-event'); renderAll(); }
-    },
-    {
-      id: 'toll-high',
-      label: `🚢 High Tolls  (+◎5/yr · maritime diplo −3/yr)`,
-      cost: G.tollPolicy === 'high' ? '✓ Active' : '',
-      enabled: G.tollPolicy !== 'high',
-      fn: () => { G.tollPolicy = 'high'; G.addLog('Toll gates raised — merchants pay dearly to pass the Hellespont.', 'log-event'); renderAll(); }
-    },
-    // ── Defence & Military Tech ──────────────────────────────
-    { type: 'header', label: '🏰 Defence & Military' },
-    {
-      id: 'walls',
-      label: `🏰 Reinforce Walls +1`,
-      cost: `⚙5`,
-      enabled: r.bronze >= 5 && G.walls < G.maxWalls,
-      fn: () => {
-        r.bronze -= 5;
-        G.walls = Math.min(G.maxWalls, G.walls + 1);
-        G.addLog('Walls reinforced. Defense increases.', 'log-good');
-        renderAll();
-      }
-    },
-    {
-      id: 'mercs',
-      label: `🗡 Hire Mercenaries +8`,
-      cost: `🥈5`,
+      id:'mercs', label:'🗡 Hire Mercenaries +2 militia', cost:'🥈5',
       enabled: r.silver >= 5,
-      fn: () => {
-        r.silver -= 5;
-        G.militia += 8;
-        G.addLog('Hired mercenaries (+8 militia).', 'log-good');
-        renderAll();
-      }
+      fn: () => { r.silver -= 5; G.pop.militia += 2; G.addLog('Hired mercenaries (+2 militia).', 'log-good'); renderAll(); },
     },
     {
-      id: 'cavalry',
-      label: `🐎 Train Chariot Team  (${G.cavalryBonus}/5)`,
-      cost: `🐎1 ⚙1 ◎3`,
+      id:'cavalry', label:`🐎 Train Chariot Team (${G.cavalryBonus}/5)`, cost:'🐎1 ⚙1 ◎3',
       enabled: r.horses >= 1 && r.bronze >= 1 && r.gold >= 3 && G.cavalryBonus < 5,
       fn: () => {
         r.horses -= 1; r.bronze -= 1; r.gold -= 3;
         G.cavalryBonus = Math.min(5, G.cavalryBonus + 1);
-        G.addLog(`Chariot team ready — +8 city defense, +10% expedition power.`, 'log-good');
+        G.addLog('Chariot team trained. +8 defense, +10% expedition power.', 'log-good');
         renderAll();
-      }
+      },
     },
-    ...(G.ironWorking ? [] : [{
-      id: 'iron',
-      label: G.turn >= 7 ? `⚒ Research Iron Working` : `⚒ Research Iron Working  (available ~1208 BC)`,
-      cost: `◎18 🔩2`,
-      enabled: G.turn >= 7 && r.gold >= 18 && r.tin >= 2,
+
+    ...(!G.ironWorking ? [{
+      id:'iron', label: G.turn >= 14 ? '⚒ Research Iron Working' : '⚒ Iron Working (available later)',
+      cost:'◎18 🔩2', enabled: G.turn >= 14 && r.gold >= 18 && r.tin >= 2,
       fn: () => {
         r.gold -= 18; r.tin -= 2;
         G.ironWorking = true;
-        G.addLog('Iron working mastered! Infantry combat strength +30%. The Hittite iron monopoly is broken.', 'log-good');
-        G.stability = Math.min(100, G.stability + 8); // prestige boost
+        G.dynasty.legitimacy = Math.min(100, G.dynasty.legitimacy + 10);
+        G.addLog('Iron working mastered! Legionaries +30% strength. Legitimacy +10.', 'log-good');
         renderAll();
-      }
-    }]),
-    ...(G.ironWorking ? [{ type: 'header', label: '⚒ Iron Working — RESEARCHED (+30% infantry str)' }] : []),
+      },
+    }] : [{ type:'info', label:'⚒ Iron Working RESEARCHED (+30% legionary str)' }]),
+
+    { type:'header', label:'💰 SELL GOODS' },
     {
-      id: 'sell-oil',
-      label: `🫒 Sell Olive Oil`,
-      cost: `🫒${r.olive_oil} → ◎${r.olive_oil * 3}`,
+      id:'sell-oil', label:`🫒 Sell Olive Oil`, cost:`🫒${r.olive_oil} → ◎${r.olive_oil * 3}`,
       enabled: r.olive_oil > 0,
-      fn: () => {
-        const gold = r.olive_oil * 3;
-        G.addLog(`Sold ${r.olive_oil} olive oil for ◎${gold}.`, 'log-trade');
-        r.gold += gold; r.olive_oil = 0;
-        renderAll();
-      }
+      fn: () => { const g = r.olive_oil * 3; r.gold += g; r.olive_oil = 0; G.addLog(`Sold olive oil for ◎${g}.`, 'log-trade'); renderAll(); },
     },
     {
-      id: 'sell-pot',
-      label: `🏺 Sell Pottery`,
-      cost: `🏺${r.pottery} → ◎${r.pottery * 2}`,
-      enabled: r.pottery > 0,
-      fn: () => {
-        const gold = r.pottery * 2;
-        G.addLog(`Sold ${r.pottery} pottery for ◎${gold}.`, 'log-trade');
-        r.gold += gold; r.pottery = 0;
-        renderAll();
-      }
-    },
-    {
-      id: 'sell-timber',
-      label: `🪵 Sell Timber`,
-      cost: `🪵${r.timber} → ◎${r.timber * 2}`,
+      id:'sell-timber', label:`🪵 Sell Timber`, cost:`🪵${r.timber} → ◎${r.timber * 2}`,
       enabled: r.timber > 0,
-      fn: () => {
-        const gold = r.timber * 2;
-        G.addLog(`Sold ${r.timber} timber for ◎${gold}.`, 'log-trade');
-        r.gold += gold; r.timber = 0;
-        renderAll();
-      }
+      fn: () => { const g = r.timber * 2; r.gold += g; r.timber = 0; G.addLog(`Sold timber for ◎${g}.`, 'log-trade'); renderAll(); },
     },
     {
-      id: 'sell-horse',
-      label: `🐎 Convert Horse to Gold`,
-      cost: `🐎1 → ◎7`,
+      id:'sell-horse', label:`🐎 Sell Horse`, cost:`🐎1 → ◎7`,
       enabled: r.horses >= 1,
-      fn: () => {
-        r.horses -= 1; r.gold += 7;
-        G.addLog('Sold a horse for ◎7.', 'log-trade');
-        renderAll();
-      }
+      fn: () => { r.horses -= 1; r.gold += 7; G.addLog('Sold a horse for ◎7.', 'log-trade'); renderAll(); },
     },
     {
-      id: 'textiles',
-      label: `🧵 Produce Textiles`,
-      cost: `🌾3 → 🥈4`,
+      id:'textiles', label:`🧵 Make Textiles`, cost:`🌾3 → 🥈4`,
       enabled: r.grain >= 3,
-      fn: () => {
-        r.grain -= 3; r.silver += 4;
-        G.addLog('Converted grain to silver via textile trade.', 'log-good');
-        renderAll();
-      }
+      fn: () => { r.grain -= 3; r.silver += 4; G.addLog('Converted grain to silver via textile trade.', 'log-good'); renderAll(); },
     },
   ];
 
   container.innerHTML = actions.map(a => {
-    if (a.type === 'header')
-      return `<div class="action-section-label">${a.label}</div>`;
+    if (a.type === 'header') return `<div class="action-section-label">${a.label}</div>`;
+    if (a.type === 'info')   return `<div class="action-section-label" style="color:#5a6a28;text-transform:none;font-size:0.68em;padding:3px 8px">${a.label}</div>`;
     return `<button class="action-item" data-id="${a.id}" ${!a.enabled ? 'disabled' : ''}>
       ${a.label} <span class="action-cost">${a.cost}</span>
     </button>`;
   }).join('');
 
-  actions.filter(a => !a.type).forEach(a => {
+  actions.filter(a => a.fn && !a.type).forEach(a => {
     const btn = container.querySelector(`[data-id="${a.id}"]`);
     if (btn && a.enabled) btn.addEventListener('click', a.fn);
   });
 }
 
-function renderMarket() {
-  const resources = ['grain','copper','tin','bronze'];
-  const icons = { grain:'🌾', copper:'⚒', tin:'🔩', bronze:'⚙' };
-  const el = document.getElementById('market-prices');
-  el.innerHTML = resources.map(res => {
-    const price    = getPrice(res);
-    const base     = BASE_PRICES[res];
-    const cls      = price > base * 1.3 ? 'rising' : price < base * 0.8 ? 'falling' : '';
-    const arrow    = price > base * 1.3 ? '↑' : price < base * 0.8 ? '↓' : '';
-    return `<div class="mkt-item">
-      <div class="mkt-icon">${icons[res]}</div>
-      <div class="mkt-name">${res.charAt(0).toUpperCase()+res.slice(1)}</div>
-      <div class="mkt-price ${cls}">◎${price.toFixed(1)} ${arrow}</div>
-    </div>`;
-  }).join('');
-}
-
-function renderPoliticsPanel() {
-  const container = document.getElementById('politics-content');
-  if (!container || container.style.display === 'none') return;
-
-  const mil  = G.factions.military;
-  const peas = G.factions.peasants;
-  const r    = G.res;
-
-  function loyaltyInfo(v) {
-    if (v >= 80) return { text: 'Loyal',     color: '#50a050' };
-    if (v >= 60) return { text: 'Content',   color: '#6a9050' };
-    if (v >= 40) return { text: 'Restless',  color: '#a07820' };
-    if (v >= 20) return { text: 'Angry',     color: '#c05030' };
-    return               { text: 'MUTINOUS', color: '#d03030' };
-  }
-
-  const milI  = loyaltyInfo(mil.loyalty);
-  const peasI = loyaltyInfo(peas.loyalty);
-  const milWarn  = mil.loyalty  < 30 ? ' <span class="faction-risk">⚠ UPRISING RISK</span>' : '';
-  const peasWarn = peas.loyalty < 30 ? ' <span class="faction-risk">⚠ UPRISING RISK</span>' : '';
-
-  container.innerHTML = `
-    <div class="faction-panel">
-      <div class="faction-block">
-        <div class="faction-row">
-          <span class="faction-icon">⚔</span>
-          <span class="faction-name">Military</span>
-          <span class="faction-status" style="color:${milI.color}">${milI.text}${milWarn}</span>
-          <div class="faction-bar-wrap"><div class="faction-bar" style="width:${mil.loyalty}%;background:${milI.color}"></div></div>
-          <span class="faction-val">${mil.loyalty}</span>
-        </div>
-        <div class="faction-actions">
-          <button class="faction-btn" ${r.gold < 5 ? 'disabled' : ''} onclick="appeaseMilitary()">Pay Bonus <span class="action-cost">◎5 → +12</span></button>
-          <button class="faction-btn" ${r.bronze < 2 ? 'disabled' : ''} onclick="armorMilitary()">Issue Arms <span class="action-cost">⚙2 → +8</span></button>
-        </div>
-      </div>
-      <div class="faction-block">
-        <div class="faction-row">
-          <span class="faction-icon">👥</span>
-          <span class="faction-name">Peasants</span>
-          <span class="faction-status" style="color:${peasI.color}">${peasI.text}${peasWarn}</span>
-          <div class="faction-bar-wrap"><div class="faction-bar" style="width:${peas.loyalty}%;background:${peasI.color}"></div></div>
-          <span class="faction-val">${peas.loyalty}</span>
-        </div>
-        <div class="faction-actions">
-          <button class="faction-btn" ${r.grain < 5 ? 'disabled' : ''} onclick="appeasePeasants()">Distribute Grain <span class="action-cost">🌾5 → +12</span></button>
-          <button class="faction-btn" ${r.gold < 8 ? 'disabled' : ''} onclick="holdFestival()">Hold Festival <span class="action-cost">◎8 → +10</span></button>
-        </div>
-      </div>
-    </div>`;
-}
-
-function renderPriceChart() {
-  const container = document.getElementById('price-chart-panel');
-  if (!container || container.style.display === 'none') return;
-
-  const hist = G.priceHistory;
-  if (hist.length < 2) {
-    container.innerHTML = '<div style="padding:10px 12px;color:#4a3020;font-size:0.68em">Price history begins after the first year ends.</div>';
-    return;
-  }
-
-  const W = 300, H = 88;
-  const PAD = { top: 6, right: 6, bottom: 14, left: 24 };
-  const iW  = W - PAD.left - PAD.right;
-  const iH  = H - PAD.top  - PAD.bottom;
-
-  const LINES = [
-    { key: 'grain',  color: '#60a840' },
-    { key: 'copper', color: '#c07030' },
-    { key: 'tin',    color: '#7090c0' },
-    { key: 'bronze', color: '#c8a030' },
-  ];
-
-  let maxVal = 1;
-  hist.forEach(h => LINES.forEach(l => { if (h.prices[l.key] > maxVal) maxVal = h.prices[l.key]; }));
-  maxVal = Math.ceil(maxVal * 1.15);
-
-  const minT = hist[0].turn, maxT = hist[hist.length - 1].turn;
-  const tRange = Math.max(1, maxT - minT);
-
-  const xOf  = t   => PAD.left + ((t - minT) / tRange) * iW;
-  const yOf  = val => PAD.top  + iH - (val / maxVal)   * iH;
-
-  let grid = '';
-  [0, Math.round(maxVal / 2), maxVal].forEach(v => {
-    const y = yOf(v);
-    grid += `<line x1="${PAD.left}" y1="${y.toFixed(1)}" x2="${W - PAD.right}" y2="${y.toFixed(1)}" stroke="#1a1000" stroke-width="0.8"/>`;
-    grid += `<text x="${PAD.left - 3}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="6.5" fill="#4a3020">${v}</text>`;
-  });
-
-  let xLabels = '';
-  hist.forEach((h, i) => {
-    if (i === 0 || i === hist.length - 1 || hist.length <= 7 || i % 3 === 0) {
-      xLabels += `<text x="${xOf(h.turn).toFixed(1)}" y="${H - 1}" text-anchor="middle" font-size="6" fill="#4a3020">${h.turn}</text>`;
-    }
-  });
-
-  let paths = '';
-  LINES.forEach(l => {
-    const pts = hist.map(h => `${xOf(h.turn).toFixed(1)},${yOf(h.prices[l.key]).toFixed(1)}`).join(' ');
-    paths += `<polyline points="${pts}" fill="none" stroke="${l.color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-    const last = hist[hist.length - 1];
-    paths += `<circle cx="${xOf(last.turn).toFixed(1)}" cy="${yOf(last.prices[l.key]).toFixed(1)}" r="2" fill="${l.color}"/>`;
-  });
-
-  // Legend at top-right
-  let legend = '';
-  const legLabels = [['🌾','grain'],['⚒','copper'],['🔩','tin'],['⚙','bronze']];
-  legLabels.forEach(([icon, key], i) => {
-    const l = LINES[i];
-    const lx = PAD.left + i * 66;
-    legend += `<text x="${lx}" y="${H - 1}" font-size="6.5" fill="${l.color}">${icon}</text>`;
-  });
-
-  container.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">
-    <rect width="${W}" height="${H}" fill="#050300"/>
-    ${grid}${paths}${xLabels}${legend}
-  </svg>`;
-}
-
-function appeaseMilitary() {
-  if (G.res.gold < 5) return;
-  G.res.gold -= 5;
-  G.factions.military.loyalty = Math.min(100, G.factions.military.loyalty + 12);
-  G.addLog('Paid military bonus — troop morale improves.', 'log-good');
-  renderPoliticsPanel(); renderTopBar();
-}
-
-function armorMilitary() {
-  if (G.res.bronze < 2) return;
-  G.res.bronze -= 2;
-  G.factions.military.loyalty = Math.min(100, G.factions.military.loyalty + 8);
-  G.addLog('Issued arms to garrison — military loyalty +8.', 'log-good');
-  renderPoliticsPanel(); renderTopBar();
-}
-
-function appeasePeasants() {
-  if (G.res.grain < 5) return;
-  G.res.grain -= 5;
-  G.factions.peasants.loyalty = Math.min(100, G.factions.peasants.loyalty + 12);
-  G.addLog('Distributed grain to the people — peasant morale improves.', 'log-good');
-  renderPoliticsPanel(); renderTopBar();
-}
-
-function holdFestival() {
-  if (G.res.gold < 8) return;
-  G.res.gold -= 8;
-  G.factions.peasants.loyalty = Math.min(100, G.factions.peasants.loyalty + 10);
-  G.stability = Math.min(100, G.stability + 5);
-  G.addLog('Festival held — people rejoice, stability +5.', 'log-good');
-  renderPoliticsPanel(); renderTopBar();
-}
-
-function renderRegionInfo(id) {
-  const region = REGIONS[id];
-  const rs     = G.regionState[id];
-  const container = document.getElementById('trade-content');
-
-  if (rs.destroyed) {
-    container.innerHTML = `
-      <div class="region-info-card">
-        <div class="ri-name">${region.icon} ${region.name}</div>
-        <span class="ri-status status-gone">💀 DESTROYED</span>
-        <p class="ri-desc" style="margin-top:8px">${region.desc}</p>
-        <p class="ri-desc" style="color:#3a2010">This region has been destroyed during the collapse. Trade is no longer possible.</p>
-      </div>`;
-    return;
-  }
-
-  if (region.noTrade) {
-    container.innerHTML = `
-      <div class="region-info-card">
-        <div class="ri-name">${region.icon} ${region.name}</div>
-        <span class="ri-status status-hostile">⚔ HOSTILE</span>
-        <p class="ri-desc" style="margin-top:8px">${region.desc}</p>
-      </div>`;
-    return;
-  }
-
-  const exports = Object.entries(region.exports || {});
-  const statusCls   = { friendly:'status-ok', neutral:'status-ok', overlord:'status-warn', suspicious:'status-warn', hostile:'status-hostile', destroyed:'status-gone' };
-  const d = rs.diplo;
-  const diploHtml = d ? `<div class="ri-diplo" style="color:${getDiploColor(d.score,d.atWar)};font-size:0.72em;margin:4px 0">
-    ${getDiploLabel(d.score,d.atWar)} (${d.score>0?'+':''}${d.score})
-    ${d.tradeDeal ? ' · 📜 Trade Deal' : ''}${d.alliance ? ' · 🤝 Allied' : ''}
-    <button class="open-trade-btn" style="margin-left:6px;padding:2px 7px;font-size:0.9em" onclick="selectDiploRegion('${id}');openDiploModal()">Diplomacy ▶</button>
-  </div>` : '';
-
-  container.innerHTML = `
-    <div class="region-info-card">
-      <div class="ri-name">${region.icon} ${region.name}</div>
-      ${diploHtml}
-      <p class="ri-desc">${region.desc}</p>
-      ${exports.length > 0 ? `
-        <div class="ri-exports">Exports: ${exports.map(([res,info]) => {
-          const qty = Math.max(0, info.qty + (rs.exportMods[res] || 0));
-          const price = getPrice(res, id, true);
-          return `${info.icon} ${info.name} ×${qty} @ ◎${price.toFixed(1)}${d?.tradeDeal ? ' <span style="color:#50a040">▼15%</span>' : ''}`;
-        }).join(' · ')}</div>` : ''}
-      ${exports.length > 0 && !d?.atWar ? `<button class="open-trade-btn" id="open-trade-${id}">Open Trade ▶</button>` : ''}
-      ${d?.atWar ? '<div style="color:#c04030;font-size:0.72em;margin-top:6px">⚔ At war — trade suspended.</div>' : ''}
-    </div>`;
-
-  document.getElementById(`open-trade-${id}`)?.addEventListener('click', () => openTradeModal(id));
+function renderLog() {
+  const el = document.getElementById('log-entries');
+  if (!el) return;
+  el.innerHTML = G.log.slice(0, 20).map(e =>
+    `<div class="log-entry ${e.cls}">${e.text}</div>`
+  ).join('');
 }
 
 function getRelationLabel(rel) {
@@ -2609,200 +2564,179 @@ function getRelationLabel(rel) {
   }[rel] || rel;
 }
 
-function renderLog() {
-  const el = document.getElementById('log-entries');
-  el.innerHTML = G.log.slice(0, 15).map(e =>
-    `<div class="log-entry ${e.cls}">${e.text}</div>`
-  ).join('');
-}
+function renderRegionInfo(id) {
+  const region = REGIONS[id];
+  const rs     = G.regionState[id];
+  const container = document.getElementById('trade-content');
+  if (!container) return;
 
-// ─── TRADE MODAL ─────────────────────────────────────────────
-const RES_META = {
-  grain:      { name:'Grain',      icon:'🌾' },
-  copper:     { name:'Copper',     icon:'⚒'  },
-  tin:        { name:'Tin',        icon:'🔩' },
-  bronze:     { name:'Bronze',     icon:'⚙'  },
-  silver:     { name:'Silver',     icon:'🥈' },
-  olive_oil:  { name:'Olive Oil',  icon:'🫒' },
-  pottery:    { name:'Pottery',    icon:'🏺' },
-  timber:     { name:'Timber',     icon:'🪵' },
-  horses:     { name:'Horses',     icon:'🐎' },
-  purple_dye: { name:'Purple Dye', icon:'🟣' },
-};
-
-let buyCart  = {};   // resId → qty player wants to buy
-let sellCart = {};   // resId → qty player wants to sell
-let currentTradeRegionId = null;
-
-function getSellPrice(resId, regionId) {
-  const region = REGIONS[regionId];
-  const mult = (region.imports || []).includes(resId) ? 0.72 : 0.38;
-  return Math.max(0.5, Math.round(getPrice(resId, regionId) * mult * 10) / 10);
-}
-
-function openTradeModal(regionId) {
-  const region = REGIONS[regionId];
-  const rs     = G.regionState[regionId];
-  buyCart  = {};
-  sellCart = {};
-  currentTradeRegionId = regionId;
-
-  document.getElementById('tmod-region-icon').textContent   = region.icon;
-  document.getElementById('tmod-region-name').textContent   = region.name;
-  document.getElementById('tmod-region-status').textContent = getRelationLabel(rs.relation);
-  document.getElementById('tmod-desc').textContent          = region.desc;
-
-  renderTradeGoods(regionId);
-  document.getElementById('trade-modal').style.display = 'flex';
-}
-
-function renderTradeGoods(regionId) {
-  const region  = REGIONS[regionId];
-  const rs      = G.regionState[regionId];
-  const exports = Object.entries(region.exports || {});
-  const container = document.getElementById('tmod-goods');
-
-  // ── BUY section ──────────────────────────────────────────
-  let buyHtml = `<div class="tmod-section-header">📦 BUY from ${region.name.split(' ')[0]}</div>`;
-  if (exports.length === 0) {
-    buyHtml += '<p style="color:#4a3010;font-size:0.8em;padding:4px 0">Nothing available to buy.</p>';
-  } else {
-    buyHtml += exports.map(([resId, info]) => {
-      const availQty = Math.max(0, info.qty + (rs.exportMods[resId] || 0));
-      const price    = getPrice(resId, regionId);
-      const cartQty  = buyCart[resId] || 0;
-      const priceClass = price > BASE_PRICES[resId] * 1.4 ? 'expensive' : price < BASE_PRICES[resId] * 0.8 ? 'cheap' : '';
-      const canAffordMore = G.res.gold + sellCartRevenue(regionId) - buyCartCost(regionId) >= price;
-
-      return `<div class="trade-good-row">
-        <div class="tg-icon">${info.icon}</div>
-        <div class="tg-name">${info.name}<br><span style="font-size:0.78em;color:#5a4020">Avail: ${availQty}</span></div>
-        <div class="tg-price ${priceClass}">◎${price.toFixed(1)}<br><span class="tg-label">BUY</span></div>
-        <div class="tg-controls">
-          <button class="buy-btn" data-res="${resId}" data-dir="-1">−</button>
-          <span id="bqty-${resId}">${cartQty}</span>
-          <button class="buy-btn" data-res="${resId}" data-dir="1" ${!canAffordMore || cartQty >= availQty ? 'disabled' : ''}>+</button>
-        </div>
-        <div class="tg-subtotal" id="bsub-${resId}">◎${(price * cartQty).toFixed(0)}</div>
-      </div>`;
-    }).join('');
-  }
-
-  // ── SELL section ─────────────────────────────────────────
-  const sellable = Object.entries(RES_META).filter(([resId]) =>
-    resId !== 'gold' && (G.res[resId] || 0) > 0
-  );
-
-  let sellHtml = `<div class="tmod-section-header" style="margin-top:12px">💰 SELL to ${region.name.split(' ')[0]}</div>`;
-  if (sellable.length === 0) {
-    sellHtml += '<p style="color:#4a3010;font-size:0.8em;padding:4px 0">You have nothing to sell.</p>';
-  } else {
-    sellHtml += sellable.map(([resId, meta]) => {
-      const playerQty = G.res[resId] || 0;
-      const cartQty   = sellCart[resId] || 0;
-      const sellPrice = getSellPrice(resId, regionId);
-      const isWanted  = (region.imports || []).includes(resId);
-      const wantedBadge = isWanted ? `<span class="wanted-badge">WANTED</span>` : '';
-
-      return `<div class="trade-good-row">
-        <div class="tg-icon">${meta.icon}</div>
-        <div class="tg-name">${meta.name} ${wantedBadge}<br><span style="font-size:0.78em;color:#5a4020">You have: ${playerQty}</span></div>
-        <div class="tg-price cheap">◎${sellPrice.toFixed(1)}<br><span class="tg-label tg-sell-label">SELL</span></div>
-        <div class="tg-controls">
-          <button class="sell-btn" data-res="${resId}" data-dir="-1">−</button>
-          <span id="sqty-${resId}">${cartQty}</span>
-          <button class="sell-btn" data-res="${resId}" data-dir="1" ${cartQty >= playerQty ? 'disabled' : ''}>+</button>
-        </div>
-        <div class="tg-subtotal" id="ssub-${resId}" style="color:#80c060">+◎${(sellPrice * cartQty).toFixed(0)}</div>
-      </div>`;
-    }).join('');
-  }
-
-  container.innerHTML = buyHtml + sellHtml;
-
-  // Wire BUY buttons
-  container.querySelectorAll('.buy-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const resId  = btn.dataset.res;
-      const dir    = parseInt(btn.dataset.dir);
-      const info   = region.exports[resId];
-      const avail  = Math.max(0, info.qty + (rs.exportMods[resId] || 0));
-      const price  = getPrice(resId, regionId);
-      const cur    = buyCart[resId] || 0;
-      const newQty = Math.max(0, Math.min(avail, cur + dir));
-
-      if (dir > 0) {
-        const netGold = G.res.gold + sellCartRevenue(regionId) - buyCartCost(regionId);
-        if (netGold < price) return;
-      }
-
-      buyCart[resId] = newQty;
-      document.getElementById(`bqty-${resId}`).textContent = newQty;
-      document.getElementById(`bsub-${resId}`).textContent = `◎${(price * newQty).toFixed(0)}`;
-      updateCartSummary(regionId);
-      renderTradeGoods(regionId);
-    });
-  });
-
-  // Wire SELL buttons
-  container.querySelectorAll('.sell-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const resId     = btn.dataset.res;
-      const dir       = parseInt(btn.dataset.dir);
-      const playerQty = G.res[resId] || 0;
-      const sellPrice = getSellPrice(resId, regionId);
-      const cur       = sellCart[resId] || 0;
-      const newQty    = Math.max(0, Math.min(playerQty, cur + dir));
-
-      sellCart[resId] = newQty;
-      document.getElementById(`sqty-${resId}`).textContent = newQty;
-      document.getElementById(`ssub-${resId}`).textContent = `+◎${(sellPrice * newQty).toFixed(0)}`;
-      updateCartSummary(regionId);
-      renderTradeGoods(regionId);
-    });
-  });
-
-  updateCartSummary(regionId);
-}
-
-function buyCartCost(regionId) {
-  return Object.entries(buyCart).reduce((sum, [resId, qty]) => {
-    return sum + (qty > 0 ? getPrice(resId, regionId, true) * qty : 0);
-  }, 0);
-}
-
-function sellCartRevenue(regionId) {
-  return Object.entries(sellCart).reduce((sum, [resId, qty]) => {
-    return sum + (qty > 0 ? getSellPrice(resId, regionId) * qty : 0);
-  }, 0);
-}
-
-function updateCartSummary(regionId) {
-  const buyCost  = buyCartCost(regionId);
-  const sellRev  = sellCartRevenue(regionId);
-  const netCost  = buyCost - sellRev;
-
-  const buyItems  = Object.entries(buyCart).filter(([,q]) => q > 0).map(([r,q]) => `${q}× ${RES_META[r]?.icon || r}`);
-  const sellItems = Object.entries(sellCart).filter(([,q]) => q > 0).map(([r,q]) => `${q}× ${RES_META[r]?.icon || r}`);
-
-  const summary = document.getElementById('tmod-cart-summary');
-  const confirm = document.getElementById('tmod-confirm');
-
-  if (!buyItems.length && !sellItems.length) {
-    summary.textContent  = 'No items selected.';
-    confirm.disabled     = true;
+  if (rs.destroyed) {
+    container.innerHTML = `<div class="region-info-card">
+      <div class="ri-name">${region.icon} ${region.name}</div>
+      <span class="ri-status status-gone">💀 DESTROYED</span>
+      <p class="ri-desc" style="margin-top:8px">${region.desc}</p>
+    </div>`;
     return;
   }
 
-  let html = '';
-  if (buyItems.length)  html += `Buy: ${buyItems.join(' ')} <span style="color:#d4a017">−◎${buyCost.toFixed(1)}</span><br>`;
-  if (sellItems.length) html += `Sell: ${sellItems.join(' ')} <span style="color:#80c060">+◎${sellRev.toFixed(1)}</span><br>`;
-  const netColor = netCost <= 0 ? '#80c060' : '#d4a017';
-  html += `Net: <b style="color:${netColor}">${netCost <= 0 ? '+' : '−'}◎${Math.abs(netCost).toFixed(1)}</b>`;
-  if (netCost > 0 && G.res.gold < netCost) html += ` <span style="color:#c03030">(need ◎${(netCost - G.res.gold).toFixed(1)} more)</span>`;
+  if (region.noTrade) {
+    container.innerHTML = `<div class="region-info-card">
+      <div class="ri-name">${region.icon} ${region.name}</div>
+      <span class="ri-status status-hostile">⚔ HOSTILE</span>
+      <p class="ri-desc" style="margin-top:8px">${region.desc}</p>
+    </div>`;
+    return;
+  }
 
-  summary.innerHTML = html;
-  confirm.disabled  = netCost > 0 && G.res.gold < netCost;
+  const exports = Object.entries(region.exports || {});
+  const d = rs.diplo;
+  const distCost = getTradeDistanceCost(id);
+  const diploHtml = d ? `<div class="ri-diplo" style="color:${getDiploColor(d.score,d.atWar)};font-size:0.72em;margin:4px 0">
+    ${getDiploLabel(d.score,d.atWar)} (${d.score>0?'+':''}${d.score})
+    ${d.tradeDeal ? ' · 📜 Trade Deal' : ''}${d.alliance ? ' · 🤝 Allied' : ''}
+    <button class="open-trade-btn" style="margin-left:6px;padding:2px 7px;font-size:0.9em" onclick="selectDiploRegion('${id}');openDiploModal()">Diplomacy ▶</button>
+  </div>` : '';
+
+  container.innerHTML = `<div class="region-info-card">
+    <div class="ri-name">${region.icon} ${region.name}</div>
+    ${diploHtml}
+    ${distCost > 0 ? `<div style="font-size:0.72em;color:#c08030;margin:3px 0">⚡ Distance cost: ◎${distCost} (disruption: ${G.disruption.toFixed(1)})</div>` : ''}
+    <p class="ri-desc">${region.desc}</p>
+    ${exports.length > 0 ? `
+      <div class="ri-exports">Exports: ${exports.map(([res,info]) => {
+        const qty = Math.max(0, info.qty + (rs.exportMods[res] || 0));
+        const price = getPrice(res, id, true);
+        return `${info.icon} ${info.name} ×${qty} @ ◎${price.toFixed(1)}${d?.tradeDeal ? ' <span style="color:#50a040">▼15%</span>' : ''}`;
+      }).join(' · ')}</div>` : ''}
+    ${exports.length > 0 && !d?.atWar ? `<button class="open-trade-btn" id="open-trade-${id}">Open Trade ▶</button>` : ''}
+    ${d?.atWar ? '<div style="color:#c04030;font-size:0.72em;margin-top:6px">⚔ At war — trade suspended.</div>' : ''}
+  </div>`;
+
+  document.getElementById(`open-trade-${id}`)?.addEventListener('click', () => openTradeModal(id));
+}
+
+
+// ─── TRADE MODAL ─────────────────────────────────────────────
+let tradeCart = {}; // res -> {qty, buy}
+
+function openTradeModal(regionId) {
+  const region = REGIONS[regionId];
+  const rs = G.regionState[regionId];
+  if (!region || rs.destroyed || rs.diplo?.atWar) return;
+
+  tradeCart = {};
+  const modal = document.getElementById('trade-modal');
+  modal.dataset.regionId = regionId;
+
+  document.getElementById('tmod-region-icon').textContent = region.icon;
+  document.getElementById('tmod-region-name').textContent = region.name;
+  const d = rs.diplo;
+  document.getElementById('tmod-region-status').textContent = d ? getDiploLabel(d.score, d.atWar) : '';
+  document.getElementById('tmod-desc').textContent = region.desc;
+
+  const distCost = getTradeDistanceCost(regionId);
+  document.getElementById('tmod-distance-cost').innerHTML =
+    `<div style="font-size:0.8em;color:#c08030;margin:6px 0">⚡ Distance cost: ◎${distCost} gold per trade (disruption: ${G.disruption.toFixed(1)})</div>`;
+
+  renderTradeGoods(regionId);
+  updateCartSummary(regionId);
+  modal.style.display = 'flex';
+}
+
+function renderTradeGoods(regionId) {
+  const region = REGIONS[regionId];
+  const rs = G.regionState[regionId];
+  const d = rs.diplo;
+  const container = document.getElementById('tmod-goods');
+  let html = '';
+
+  // Exports from region (buy)
+  const exps = Object.entries(region.exports || {});
+  if (exps.length > 0) {
+    html += `<div class="trade-section-header">Buy from ${region.name}</div>`;
+    for (const [res, info] of exps) {
+      const avail = Math.max(0, info.qty + (rs.exportMods[res] || 0));
+      const price = getPrice(res, regionId, true);
+      const inCart = tradeCart[`buy_${res}`]?.qty || 0;
+      if (avail <= 0) continue;
+      html += `<div class="trade-row">
+        <span class="trade-res-icon">${info.icon}</span>
+        <span class="trade-res-name">${info.name}</span>
+        <span class="trade-res-price">◎${price.toFixed(1)} each${d?.tradeDeal ? ' <span style="color:#50a040">▼15%</span>' : ''}</span>
+        <span class="trade-res-avail">Avail: ${avail - inCart}</span>
+        <div class="trade-qty-ctrl">
+          <button onclick="adjustCart('buy_${res}','${res}',${avail},${price},-1,'${regionId}')">-</button>
+          <span id="cart-buy-${res}">${inCart}</span>
+          <button onclick="adjustCart('buy_${res}','${res}',${avail},${price},1,'${regionId}')">+</button>
+        </div>
+      </div>`;
+    }
+  }
+
+  // Imports to region (sell)
+  const imps = Object.entries(region.imports || {});
+  if (imps.length > 0) {
+    html += `<div class="trade-section-header" style="margin-top:10px">Sell to ${region.name}</div>`;
+    for (const [res, info] of imps) {
+      const price = getPrice(res, regionId, false);
+      const have = G.res[res] || 0;
+      const inCart = tradeCart[`sell_${res}`]?.qty || 0;
+      html += `<div class="trade-row">
+        <span class="trade-res-icon">${info.icon || RES_META[res]?.icon || '📦'}</span>
+        <span class="trade-res-name">${info.name || res}</span>
+        <span class="trade-res-price">◎${price.toFixed(1)} each</span>
+        <span class="trade-res-avail">Have: ${have - inCart}</span>
+        <div class="trade-qty-ctrl">
+          <button onclick="adjustCart('sell_${res}','${res}',${have},${price},-1,'${regionId}')">-</button>
+          <span id="cart-sell-${res}">${inCart}</span>
+          <button onclick="adjustCart('sell_${res}','${res}',${have},${price},1,'${regionId}')">+</button>
+        </div>
+      </div>`;
+    }
+  }
+
+  container.innerHTML = html;
+}
+
+function adjustCart(key, res, maxQty, price, delta, regionId) {
+  if (!tradeCart[key]) tradeCart[key] = { qty: 0, price, res, buy: key.startsWith('buy_') };
+  const newQty = Math.max(0, Math.min(maxQty, tradeCart[key].qty + delta));
+  tradeCart[key].qty = newQty;
+  const el = document.getElementById(`cart-${key}`);
+  if (el) el.textContent = newQty;
+  updateCartSummary(regionId);
+}
+
+function buyCartCost() {
+  let total = 0;
+  for (const [key, item] of Object.entries(tradeCart)) {
+    if (item.buy && item.qty > 0) total += item.qty * item.price;
+  }
+  return total;
+}
+
+function sellCartRevenue() {
+  let total = 0;
+  for (const [key, item] of Object.entries(tradeCart)) {
+    if (!item.buy && item.qty > 0) total += item.qty * item.price;
+  }
+  return total;
+}
+
+function updateCartSummary(regionId) {
+  const cost = buyCartCost();
+  const rev = sellCartRevenue();
+  const distCost = getTradeDistanceCost(regionId);
+  const net = rev - cost - distCost;
+  const hasItems = Object.values(tradeCart).some(i => i.qty > 0);
+
+  document.getElementById('tmod-cart-summary').innerHTML = hasItems ?
+    `<div style="font-size:0.82em;color:#b09050">
+      Buy cost: ◎${cost.toFixed(1)} &nbsp;|&nbsp; Sell revenue: ◎${rev.toFixed(1)} &nbsp;|&nbsp;
+      Distance cost: ◎${distCost} &nbsp;|&nbsp;
+      <strong style="color:${net>=0?'#60a040':'#c04030'}">Net: ◎${net.toFixed(1)}</strong>
+    </div>` :
+    `<div style="font-size:0.82em;color:#806040">No items selected.</div>`;
 }
 
 document.getElementById('tmod-close').addEventListener('click', () => {
@@ -2810,659 +2744,406 @@ document.getElementById('tmod-close').addEventListener('click', () => {
 });
 
 document.getElementById('tmod-confirm').addEventListener('click', () => {
-  if (!currentTradeRegionId) return;
+  const regionId = document.getElementById('trade-modal').dataset.regionId;
+  if (!regionId) return;
+  const rs = G.regionState[regionId];
 
-  const regionId   = currentTradeRegionId;
-  const regionName = REGIONS[regionId].name;
-  const buyCost    = buyCartCost(regionId);
-  const sellRev    = sellCartRevenue(regionId);
-  const netCost    = buyCost - sellRev;
+  const cost = buyCartCost();
+  const rev = sellCartRevenue();
+  const distCost = getTradeDistanceCost(regionId);
+  const totalCost = cost + distCost;
 
-  const bought = [], sold = [];
+  if (G.res.gold < totalCost - rev) {
+    G.addLog(`Not enough gold for this trade (need ◎${(totalCost - rev).toFixed(1)}).`, 'log-bad');
+    renderLog();
+    return;
+  }
 
-  Object.entries(buyCart).forEach(([resId, qty]) => {
-    if (qty <= 0) return;
-    G.res[resId] = (G.res[resId] || 0) + qty;
-    bought.push(`${qty}× ${RES_META[resId]?.icon || resId}`);
-  });
+  // Apply buys
+  for (const [key, item] of Object.entries(tradeCart)) {
+    if (!item.buy || item.qty <= 0) continue;
+    G.res[item.res] = (G.res[item.res] || 0) + item.qty;
+    G.res.gold -= item.qty * item.price;
+  }
+  // Apply sells
+  for (const [key, item] of Object.entries(tradeCart)) {
+    if (item.buy || item.qty <= 0) continue;
+    G.res[item.res] = Math.max(0, (G.res[item.res] || 0) - item.qty);
+    G.res.gold += item.qty * item.price;
+  }
+  // Deduct distance cost
+  G.res.gold -= distCost;
+  G.res.gold = Math.max(0, G.res.gold);
 
-  Object.entries(sellCart).forEach(([resId, qty]) => {
-    if (qty <= 0) return;
-    G.res[resId] = Math.max(0, (G.res[resId] || 0) - qty);
-    sold.push(`${qty}× ${RES_META[resId]?.icon || resId}`);
-  });
+  // Toll revenue for Troy
+  const tollBonus = getTollGoldBonus();
+  if (tollBonus > 0) G.res.gold += tollBonus;
 
-  G.res.gold = Math.max(0, G.res.gold - netCost);
-
-  const parts = [];
-  if (bought.length) parts.push(`bought ${bought.join(' ')}`);
-  if (sold.length)   parts.push(`sold ${sold.join(' ')}`);
-  G.addLog(`Trade with ${regionName}: ${parts.join(', ')}. Net ◎${Math.abs(netCost).toFixed(0)} ${netCost <= 0 ? 'gained' : 'spent'}.`, 'log-trade');
-
-  document.getElementById('trade-modal').style.display = 'none';
   G.tradeDoneThisTurn = true;
   G.lastTradedRegionId = regionId;
-  buyCart = {}; sellCart = {};
+
+  // Diplo relation boost
+  if (rs.diplo) rs.diplo.score = Math.min(100, rs.diplo.score + 2);
+
+  const lines = [];
+  for (const [key, item] of Object.entries(tradeCart)) {
+    if (item.qty > 0) lines.push(`${item.buy ? 'Bought' : 'Sold'} ${item.qty}× ${item.res}`);
+  }
+  G.addLog(`Trade with ${REGIONS[regionId].name}: ${lines.join(', ')}. Distance cost: ◎${distCost}.`, 'log-trade');
+
+  document.getElementById('trade-modal').style.display = 'none';
   renderAll();
 });
 
 // ─── EVENT MODAL ─────────────────────────────────────────────
-let pendingEventCb = null;
-
-function showEventModal(ev, effectSummary, onContinue) {
-  document.getElementById('emod-icon').textContent  = ev.icon;
+function showEventModal(ev, extraEffects) {
+  const modal = document.getElementById('event-modal');
+  document.getElementById('emod-icon').textContent = ev.icon || '📜';
   document.getElementById('emod-title').textContent = ev.title;
-  document.getElementById('emod-text').textContent  = ev.text;
+  document.getElementById('emod-text').textContent = ev.text;
 
-  const effectsEl = document.getElementById('emod-effects');
-  effectsEl.innerHTML = effectSummary.map(e =>
-    `<div class="effect-line ${e.cls}">${e.text}</div>`
+  // Show effects
+  const effects = extraEffects || ev.effects || [];
+  document.getElementById('emod-effects').innerHTML = effects.map(e =>
+    `<div class="emod-effect ${e.good ? 'effect-good' : 'effect-bad'}">${e.text}</div>`
   ).join('');
 
-  pendingEventCb = onContinue;
-  document.getElementById('event-modal').style.display = 'flex';
-  document.getElementById('next-turn-btn').disabled = true;
+  modal.style.display = 'flex';
 }
 
 document.getElementById('emod-continue').addEventListener('click', () => {
   document.getElementById('event-modal').style.display = 'none';
-  document.getElementById('next-turn-btn').disabled = false;
-  if (pendingEventCb) { pendingEventCb(); pendingEventCb = null; }
+  renderAll();
 });
 
-// ─── NEXT TURN ───────────────────────────────────────────────
+// ─── TRIBUTE MODAL ───────────────────────────────────────────
+function showTributeModal() {
+  const modal = document.getElementById('tribute-modal');
+  const due = G.tributeDoubleThisTurn ? 6 : 3;
+  document.getElementById('trib-due-amount').textContent = due;
+  document.getElementById('trib-double-warn').innerHTML = G.tributeDoubleThisTurn ?
+    `<div style="color:#c04030;font-size:0.8em;margin-bottom:8px">⚠ Double tribute demanded this season!</div>` : '';
+  document.getElementById('trib-bronze-have').textContent = `You have: ⚙ ${G.res.bronze} bronze`;
+  const d = G.regionState.hatti?.diplo;
+  document.getElementById('trib-hatti-status').textContent = d ?
+    `Hatti relations: ${d.score} (${getDiploLabel(d.score, d.atWar)})` : '';
+  modal.style.display = 'flex';
+}
+
+document.getElementById('trib-pay-btn').addEventListener('click', () => {
+  payTribute();
+  document.getElementById('tribute-modal').style.display = 'none';
+  renderAll();
+});
+
+document.getElementById('trib-refuse-btn').addEventListener('click', () => {
+  G.tributeRefusedThisTurn = true;
+  const d = G.regionState.hatti?.diplo;
+  if (d) d.score = Math.max(-100, d.score - 15);
+  G.dynasty.legitimacy = Math.max(0, G.dynasty.legitimacy - 5);
+  G.addLog('You refused to pay tribute to Hatti. The Great King is angered.', 'log-bad');
+  document.getElementById('tribute-modal').style.display = 'none';
+  renderAll();
+});
+
+// ─── DIPLO MODAL LISTENERS ────────────────────────────────────
 document.getElementById('diplo-btn').addEventListener('click', openDiploModal);
 document.getElementById('diplo-close').addEventListener('click', () => {
   document.getElementById('diplo-modal').style.display = 'none';
 });
 
-// ─── TRIBUTE MODAL ────────────────────────────────────────────
-function showTributeModal(callback) {
-  const hattiRs = G.regionState.hatti;
-  const hd      = hattiRs?.diplo;
-
-  // Skip modal: not a vassal, Hatti destroyed, or already at war with Hatti
-  if (!G.vassalOfHatti || hattiRs?.destroyed || hd?.atWar) {
-    return callback();
-  }
-
-  const due     = G.tributeDoubleThisTurn ? 6 : 3;
-  const canPay  = G.res.bronze >= due;
-  const score   = hd?.score ?? 0;
-  const color   = getDiploColor(score, false);
-  const label   = hd ? getDiploLabel(score, false) : '~ Unknown';
-  const doubleWarn = G.tributeDoubleThisTurn
-    ? `<div class="trib-warn">⚠ Double tribute demanded this year!</div>` : '';
-
-  document.getElementById('trib-due-amount').textContent  = due;
-  document.getElementById('trib-hatti-status').innerHTML  =
-    `Hatti relations: <span style="color:${color}">${label} (${score > 0 ? '+' : ''}${score})</span>`;
-  document.getElementById('trib-double-warn').innerHTML   = doubleWarn;
-  document.getElementById('trib-bronze-have').textContent =
-    `You have: ⚙ ${G.res.bronze} bronze`;
-
-  const payBtn = document.getElementById('trib-pay-btn');
-  payBtn.disabled = !canPay;
-  payBtn.innerHTML = canPay
-    ? `Pay ⚙${due} &nbsp;<span class="trib-consequence good">Relations +4</span>`
-    : `Pay ⚙${due} &nbsp;<span class="trib-consequence bad">Not enough bronze</span>`;
-
-  document.getElementById('tribute-modal').style.display = 'flex';
-
-  const finish = (refused) => {
-    document.getElementById('tribute-modal').style.display = 'none';
-    G.tributeRefusedThisTurn = refused;
-    callback();
-  };
-
-  document.getElementById('trib-pay-btn').onclick    = () => canPay && finish(false);
-  document.getElementById('trib-refuse-btn').onclick = () => finish(true);
-}
-
-document.getElementById('next-turn-btn').addEventListener('click', () => {
-  showTributeModal(advanceTurn);
+// ─── LETTER MODAL ────────────────────────────────────────────
+document.getElementById('letters-btn').addEventListener('click', openLetterModal);
+document.getElementById('letter-close').addEventListener('click', () => {
+  document.getElementById('letter-modal').style.display = 'none';
 });
 
+
+// ─── ADVANCE TURN ─────────────────────────────────────────────
 function advanceTurn() {
-  G.tradeDoneThisTurn = false;
+  const wasSum = isSummer();
 
-  // 0. Update diplomacy (score drift, demands, war declarations)
-  updateDiplomacyPerTurn();
-
-  // 0b. Update drought — must come before production since it changes grain mult
-  updateDrought();
-
-  // 1. Collect production (drought + stability + toll already factored in)
-  const prod = getTroyProduction();
-  G.res.grain  += prod.grain;
-  G.res.gold   += prod.gold - garrisonGoldCost();
-  if (prod.bronze > 0) {
-    G.res.bronze += prod.bronze;
-    G.addLog(`Bronze Smithy produced ${prod.bronze} bronze.`, 'log-good');
-  }
-  if (G.droughtLevel > 0) {
-    const label = G.droughtLevel === 1 ? 'dry season' : 'severe drought';
-    G.addLog(`🌾 Harvest reduced by ${G.droughtLevel === 1 ? '30' : '55'}% (${label}).`, 'log-event');
+  // 1. Compute production & resources
+  computeProduction();
+  if (wasSum) {
+    // Grain from farms + peasants
+    const grainProduced = Math.floor(G.pop.peasant * 2 + G.buildings.farms * 5) + G.production.farmland;
+    G.res.grain += grainProduced;
+    G.addLog(`Summer harvest: +${grainProduced} grain from ${G.pop.peasant} peasant units.`, 'log-norm');
+  } else {
+    G.addLog('Winter: no grain production.', 'log-norm');
   }
 
-  // 2. Pay tribute
-  if (G.vassalOfHatti) payTribute();
+  // 2. Artisan production
+  if (G.pop.artisan > 0) {
+    const copperMade = Math.floor(G.pop.artisan * 0.5 + G.buildings.workshop * 1);
+    if (copperMade > 0) {
+      G.res.copper += copperMade;
+    }
+  }
 
-  // 3. Feed population
+  // 3. Gold from traders & tolls
+  const traderGold = Math.floor(G.pop.trader * getTaxGoldMult() * 2);
+  const tollGold   = G.production.tollgate;
+  G.res.gold += traderGold + tollGold;
+  if (traderGold + tollGold > 0) {
+    G.addLog(`Trade income: +◎${traderGold + tollGold} gold (traders: ${traderGold}, tolls: ${tollGold}).`, 'log-norm');
+  }
+
+  // 4. Feed population & garrison
   feedPopulation();
-
-  // 3b. Feed garrison (rations for soldiers)
   feedGarrison();
 
-  // 3c. Random mini-event (before stability — events may affect it)
-  rollMiniEvent();
-
-  // 3d. Update social stability
-  updateStability();
-
-  // 3e. Update factions and check uprisings
-  updateFactions();
-  checkFactionUprisings();
-
-  // 3f. Record price snapshot for chart
-  recordPriceHistory();
-
-  // 4. Check starvation
-  if (G.population <= 0) {
-    endGame(false, 'Your people have starved. The city of Troy falls silent, its population gone. The Bronze Age claims another victim.');
-    return;
-  }
-
-  // 5. Advance turn
-  G.turn++;
-
-  // 6. Process scripted event (if any for new turn)
+  // 5. Events
   const ev = EVENTS.find(e => e.turn === G.turn);
   if (ev) {
-    const summary = applyEffects(ev.effects);
-
-    if (ev.logText) G.addLog(ev.logText, ev.logClass);
-
-    if (ev.isSiege) {
-      // Force Mycenae into war state via diplomacy
-      const myd = G.regionState.mycenae?.diplo;
-      if (myd && !myd.atWar) {
-        myd.atWar = true; myd.score = -85;
-        myd.warDeclaredTurn = G.turn; myd.warAttackTurn = G.turn - 1;
-      }
-      showEventModal(ev, summary, () => {
-        const siegeEff = ev.effects.find(e => e.type === 'siege');
-        const battleConfig = siegeEff ? {
-          attacker: 'Mycenaean Host',
-          attackerIcon: '🛡',
-          baseSize: siegeEff.attackStrength,
-          type: 'siege',
-          desc: 'A great Achaean fleet besieges the walls of Troy!',
-          regionId: 'mycenae',
-        } : null;
-        if (battleConfig) {
-          processBattleQueue([battleConfig], () => { renderAll(); checkTurnEnd(); });
-        } else {
-          renderAll(); checkTurnEnd();
-        }
-      });
-    } else if (ev.isFinal) {
-      showEventModal(ev, summary, () => {
-        buildAndProcessRandomBattles(() => { renderAll(); checkTurnEnd(); });
-      });
-    } else {
-      showEventModal(ev, summary, () => {
-        buildAndProcessRandomBattles(() => { renderAll(); checkTurnEnd(); });
-      });
-    }
-  } else {
-    buildAndProcessRandomBattles(() => { renderAll(); checkTurnEnd(); });
+    applyEffects(ev.effects || {});
+    showEventModal(ev);
   }
+  rollMiniEvent();
+
+  // 6. Letters generation
+  tryGenerateLetters();
+
+  // 7. Tribute prompt (every summer, if vassal of Hatti)
+  if (wasSum && G.vassalOfHatti) {
+    G.tributeDoubleThisTurn = (Math.random() < 0.2);
+    G.tributeRefusedThisTurn = false;
+    showTributeModal();
+  }
+
+  // 8. Battles from diplomacy / nation wars
+  updateNationWars();
+  buildAndProcessRandomBattles();
+
+  // 9. Update factions, dynasty, diplomacy
+  updateFactions();
+  checkFactionCrises();
+  updateDynasty();
+  updateDiplomacyPerTurn();
+  updateDrought();
+
+  // 10. Price history
+  recordPriceHistory();
+
+  // 11. Reset per-turn flags
+  G.tradeDoneThisTurn = false;
+  G.lastTradedRegionId = null;
+
+  // 12. Advance turn counter
+  G.turn++;
+
+  // 13. Check victory / defeat
+  if (!checkTurnEnd()) return;
+
+  // 14. Re-render
+  renderAll();
+  updateLetterBadge();
 }
 
 function checkTurnEnd() {
-  if (G.turn > G.maxTurns) checkVictory();
+  // Defeat conditions
+  const total = popTotal();
+  if (total <= 0) {
+    endGame(false, 'Troy has fallen', 'Your city has been depopulated. The dynasty ends here.');
+    return false;
+  }
+  if (G.dynasty.legitimacy <= 0) {
+    endGame(false, 'Dynasty Overthrown', 'You have lost all legitimacy. A coup has deposed your line.');
+    return false;
+  }
+  const hatti = G.regionState.hatti?.diplo;
+  if (hatti?.atWar && G.buildings.walls <= 0) {
+    endGame(false, 'Troy Falls to Hatti', 'The Great King\'s armies breach your walls. Wilusa is no more.');
+    return false;
+  }
+  if (G.turn > G.maxTurns) {
+    checkVictory();
+    return false;
+  }
+  return true;
 }
 
-function buildAndProcessRandomBattles(callback) {
-  const t = G.turn;
-  const queue = [];
-
-  // ── Diplomatic wars (from region AI) ─────────────────────
-  getDiplomaticWarBattles().forEach(b => queue.push(b));
-
-  // Kashka raiders (turns 2-10)
-  if (t >= 2 && t <= 10 && Math.random() < 0.22) {
-    queue.push({
-      attacker: 'Kashka Raiders',
-      attackerIcon: '🗡',
-      baseSize: 12 + Math.floor(Math.random() * 22),
-      type: 'raid',
-      desc: 'A Kashka raiding party descends from the northern hills.'
-    });
-  }
-
-  // Sea Peoples (turns 6-15) — grow dramatically as the Bronze Age collapses
-  if (t >= 6 && t <= 15) {
-    const spChance  = t >= 12 ? 0.78 : t >= 9 ? 0.52 : t >= 7 ? 0.32 : 0.18;
-    const spMinSize = t >= 12 ? 95  : t >= 9  ? 68   : t >= 7  ? 45   : 30;
-    const spRndSize = t >= 12 ? 55  : t >= 9  ? 40   : t >= 7  ? 30   : 20;
-    if (Math.random() < spChance) {
-      queue.push({
-        attacker: 'Sea Peoples',
-        attackerIcon: '🏴‍☠️',
-        baseSize: spMinSize + Math.floor(Math.random() * spRndSize),
-        type: t >= 8 ? 'invasion' : 'raid',
-        desc: t >= 12
-          ? 'A vast Sea Peoples migration fleet descends on Troy — entire nations on the move.'
-          : 'Sea Peoples raiders strike at the heart of the Aegean trade routes.',
-      });
-    }
-  }
-
-  // Refugee bandits (turns 12-15)
-  if (t >= 12 && t <= 15 && Math.random() < 0.20) {
-    queue.push({
-      attacker: 'Refugee Bandits',
-      attackerIcon: '👥',
-      baseSize: 8 + Math.floor(Math.random() * 15),
-      type: 'raid',
-      desc: 'Desperate refugees from fallen cities have turned to raiding.'
-    });
-  }
-
-  processBattleQueue(queue, callback);
-}
-
-function processBattleQueue(queue, callback) {
-  if (!queue.length) { callback(); return; }
-  const config = queue.shift();
-  const result = simulateBattle(config);
-  showBattleModal(result, () => {
-    applyBattleResult(result);
-    processBattleQueue(queue, callback);
-  });
-}
-
-// ─── BATTLE SYSTEM ────────────────────────────────────────────
-
-const PHASE_NAMES = ['Advance & Skirmish', 'Main Assault', 'Final Clash'];
+// ─── BATTLE SYSTEM ───────────────────────────────────────────
+const PHASE_NAMES = ['Opening Volleys','Advance','Clash of Spears','Press the Advantage','Rout'];
 const PHASE_DESCS = [
-  'Archers and skirmishers exchange fire as the attackers advance.',
-  'The main force storms the walls and gate.',
-  'The battle reaches its climax — one side gives way.'
+  'Archers exchange fire from distance.',
+  'Infantry close the gap under missile fire.',
+  'Spear lines crash together in brutal melee.',
+  'One side begins to waver.',
+  'The losing side breaks and flees.'
 ];
-const LOSS_FRAC = { decisive_victory: 0.02, victory: 0.05, pyrrhic: 0.20, defeat: 0.40, sack: 0.60 };
+const LOSS_FRAC = [0.04, 0.08, 0.12, 0.10, 0.06];
 
-// ─── EXPEDITION (player attacks a city) ─────────────────────
+let battleQueue = [];
+
+function buildAndProcessRandomBattles() {
+  // Check if Hatti or Mycenae is at war with Troy
+  getDiplomaticWarBattles().forEach(b => battleQueue.push(b));
+  processBattleQueue();
+}
+
+function processBattleQueue() {
+  if (battleQueue.length === 0) return;
+  const battle = battleQueue.shift();
+  simulateBattle(battle, () => processBattleQueue());
+}
+
 function launchExpedition(city) {
-  if (getTotalGarrison() === 0) {
-    G.addLog('You have no troops to send on expedition.', 'log-crisis');
-    drawMap(); return;
-  }
-  const result = simulateExpedition(city);
-  showBattleModal(result, () => {
-    applyExpeditionResult(result);
-    renderAll();
-  });
+  // Player clicks a city on the map to trade/raid
+  const regionId = city.region;
+  const rs = G.regionState[regionId];
+  if (!rs || rs.destroyed) { G.addLog(`${city.name} is already destroyed.`,'log-bad'); return; }
+  // Open trade modal instead for now
+  openTradeModal(regionId);
 }
 
-function simulateExpedition(city) {
-  const { region, label: cityLabel, id: cityId } = city;
-  const prof      = DIPLO_PROFILE[region];
-  const cityIcon  = REGIONS[region]?.icon ?? '🏰';
-  const effMil    = region === 'hatti' ? getHattiMilitary() : (prof?.military ?? 15);
-  // Cities defend with walls bonus (1.2×) and home-field randomness
-  const cityDefSize = Math.max(8, effMil + Math.floor(Math.random() * 18));
-  const cityDefBase = cityDefSize * 1.20;
-
-  // Chariots boost expedition attack power (+10% per team, up to +50%)
-  const chariotMult = 1 + G.cavalryBonus * 0.10;
-  const playerStr   = getGarrisonStrength() * chariotMult;
-
-  let atkTotalRolls = 0, defTotalRolls = 0;
-  let atkTotalCas   = 0, defTotalCas   = 0;
-  const rounds = [];
-
-  for (let i = 0; i < 3; i++) {
-    const atkRoll = playerStr   * (0.55 + Math.random() * 0.90);
-    const defRoll = cityDefBase * (0.60 + Math.random() * 0.80);
-    const atkCas  = Math.floor(getTotalGarrison() * (0.04 + Math.random() * 0.09));
-    const defCas  = Math.floor(cityDefSize        * (0.03 + Math.random() * 0.07));
-    atkTotalRolls += atkRoll; defTotalRolls += defRoll;
-    atkTotalCas   += atkCas;  defTotalCas   += defCas;
-    rounds.push({ name: PHASE_NAMES[i], desc: PHASE_DESCS[i], atkRoll, defRoll, atkCas, defCas });
-  }
-
-  // ratio > 1 means Troy won
-  const ratio = atkTotalRolls / defTotalRolls;
-  let outcome;
-  if (ratio >= 1.5)       outcome = 'decisive_victory';
-  else if (ratio >= 1.0)  outcome = 'victory';
-  else if (ratio >= 0.80) outcome = 'pyrrhic';
-  else if (ratio >= 0.55) outcome = 'defeat';
-  else                    outcome = 'sack';  // Troy routed
-
-  // Attacker (Troy) takes more casualties than defenders in siege
-  const EXP_LOSS = { decisive_victory: 0.05, victory: 0.12, pyrrhic: 0.28, defeat: 0.45, sack: 0.65 };
-  const lf = EXP_LOSS[outcome];
-  const mLossExp = Math.min(G.militia,  Math.round(G.militia  * lf * 1.25));
-  const iLossExp = Math.min(G.infantry, Math.round(G.infantry * lf * 0.75));
-  const garrisonBefore = { militia: G.militia, infantry: G.infantry };
-  const garrisonAfter  = { militia: Math.max(0, G.militia - mLossExp), infantry: Math.max(0, G.infantry - iLossExp) };
-
-  return {
-    isExpedition: true,
-    cityId, cityLabel, cityIcon, region, cityDefSize,
-    config: {
-      attacker: cityLabel, attackerIcon: cityIcon,
-      desc: `Troy marches on ${cityLabel}.`, regionId: region
-    },
-    atkSize: getTotalGarrison(),
-    rounds, outcome, atkTotalCas, defTotalCas, atkTotalRolls, defTotalRolls,
-    garrisonBefore, garrisonAfter, mLossExp, iLossExp, expLossFrac: lf,
-  };
+function simulateExpedition(regionId, callback) {
+  // Outgoing raid (not used much in new design — kept for compat)
+  callback && callback();
 }
 
-function applyExpeditionResult(result) {
-  const { outcome, cityLabel, region, mLossExp, iLossExp } = result;
-  const prof = DIPLO_PROFILE[region];
-  const d    = G.regionState[region]?.diplo;
-
-  // Stability: victories inspire, defeats demoralise
-  const expStabDelta = { decisive_victory: +6, victory: +4, pyrrhic: -5, defeat: -8, sack: -14 }[outcome] ?? 0;
-  G.stability = Math.max(0, Math.min(100, G.stability + expStabDelta));
-
-  // Apply player garrison losses (attacker takes heavy casualties)
-  applyGarrisonLoss(result.expLossFrac);
-
-  if (outcome === 'decisive_victory' || outcome === 'victory') {
-    const lootGold  = Math.floor(Math.random() * 8)  + 4;
-    const lootGrain = Math.floor(Math.random() * 5)  + 2;
-    G.res.gold  += lootGold;
-    G.res.grain += lootGrain;
-    G.addLog(`${cityLabel} raided! Seized ◎${lootGold}, 🌾${lootGrain}.`, 'log-good');
-    if (d) {
-      d.score = clampScore(d.score - 30);
-      if (prof?.canWar && d.score <= (prof.warThreshold ?? -40) && !d.atWar) {
-        d.atWar = true;
-        d.warAttackTurn = null;
-        G.addLog(`⚔ ${REGIONS[region].name} declares war after the raid!`, 'log-crisis');
-      }
-    }
-  } else if (outcome === 'pyrrhic') {
-    const lootGold = Math.floor(Math.random() * 4) + 1;
-    G.res.gold += lootGold;
-    G.addLog(`Pyrrhic raid on ${cityLabel}. Heavy losses. Seized ◎${lootGold}.`, 'log-event');
-    if (d) d.score = clampScore(d.score - 18);
-  } else if (outcome === 'defeat') {
-    G.addLog(`Expedition to ${cityLabel} repelled. Army retreats with losses.`, 'log-crisis');
-    if (d) d.score = clampScore(d.score - 8);
-  } else {
-    G.addLog(`Expedition to ${cityLabel} routed! Army in disorder.`, 'log-crisis');
-    if (d) d.score = clampScore(d.score - 4);
-  }
-}
-
-function simulateBattle(config) {
-  const typeMultiplier = { siege: 1.25, invasion: 1.1, raid: 0.8 }[config.type] || 1.0;
-  const atkSize = Math.round(config.baseSize * (0.8 + Math.random() * 0.4));
-
-  const moraleMult    = G.population > 70 ? 1.12 : G.population > 40 ? 1.0 : 0.82;
-  const allianceBonus = getAllianceBonus();
-  // Stability morale (different from stabilityProdMult — direct combat modifier)
-  const stabMorale = G.stability >= 70 ? 1.08 : G.stability >= 50 ? 1.0 : G.stability >= 30 ? 0.88 : 0.72;
-  const defBase    = (getGarrisonStrength() + allianceBonus) * (1 + G.walls * 0.28) * moraleMult * stabMorale
-                     + G.cavalryBonus * 8;  // chariots: +8 each (was +5)
-
-  const atkBase = atkSize * typeMultiplier;
-
-  let atkTotalRolls = 0, defTotalRolls = 0;
-  let atkTotalCas = 0, defTotalCas = 0;
-  const rounds = [];
-
-  for (let i = 0; i < 3; i++) {
-    const atkRoll = atkBase * (0.55 + Math.random() * 0.9);
-    const defRoll = defBase * (0.60 + Math.random() * 0.8);
-    const atkCas  = Math.floor(atkSize * (0.04 + Math.random() * 0.08));
-    const defCas  = Math.floor(getTotalGarrison() * (0.03 + Math.random() * 0.07));
-    atkTotalRolls += atkRoll;
-    defTotalRolls += defRoll;
-    atkTotalCas   += atkCas;
-    defTotalCas   += defCas;
-    rounds.push({ name: PHASE_NAMES[i], desc: PHASE_DESCS[i], atkRoll, defRoll, atkCas, defCas });
-  }
-
-  const ratio = defTotalRolls / atkTotalRolls;
-  let outcome;
-  if (ratio >= 1.5)       outcome = 'decisive_victory';
-  else if (ratio >= 1.0)  outcome = 'victory';
-  else if (ratio >= 0.80) outcome = 'pyrrhic';
-  else if (ratio >= 0.55) outcome = 'defeat';
-  else                    outcome = 'sack';
-
-  // Pre-compute expected garrison losses (mirrors applyGarrisonLoss exactly)
-  const lf = LOSS_FRAC[outcome];
-  const mLossExp = Math.min(G.militia,  Math.round(G.militia  * lf * 1.25));
-  const iLossExp = Math.min(G.infantry, Math.round(G.infantry * lf * 0.75));
-  const garrisonBefore = { militia: G.militia, infantry: G.infantry };
-  const garrisonAfter  = { militia: Math.max(0, G.militia - mLossExp), infantry: Math.max(0, G.infantry - iLossExp) };
-
-  return { config, atkSize, rounds, outcome, atkTotalCas, defTotalCas, atkTotalRolls, defTotalRolls,
-           garrisonBefore, garrisonAfter, mLossExp, iLossExp };
-}
-
-function applyBattleResult(result) {
-  const { outcome, defTotalCas, atkTotalCas, config } = result;
-  if (outcome === 'sack') {
-    applyGarrisonLoss(0.60);
-    G.walls      = Math.max(0, G.walls - 2);
-    G.population = Math.max(0, Math.floor(G.population * 0.80));
-    G.res.grain  = Math.max(0, Math.floor(G.res.grain * 0.50));
-    G.addLog(`💀 CITY SACKED by ${config.attacker}! Walls breached, people slain.`, 'log-crisis');
-    if (G.walls <= 0 || G.population <= 0) {
-      endGame(false, `Troy has been sacked and its walls thrown down. The city burns. The Bronze Age claims one more victim.`);
-    }
-  } else if (outcome === 'defeat') {
-    applyGarrisonLoss(0.40);
-    G.walls      = Math.max(0, G.walls - 1);
-    G.population = Math.max(0, Math.floor(G.population * 0.90));
-    G.res.grain  = Math.max(0, Math.floor(G.res.grain * 0.75));
-    G.addLog(`⚠ Defeated by ${config.attacker}. Heavy losses sustained.`, 'log-crisis');
-  } else if (outcome === 'pyrrhic') {
-    applyGarrisonLoss(0.20);
-    G.population = Math.max(0, Math.floor(G.population * 0.95));
-    G.addLog(`⚔ ${config.attacker} repelled — but at great cost.`, 'log-event');
-  } else if (outcome === 'victory') {
-    applyGarrisonLoss(0.05);
-    G.addLog(`✓ ${config.attacker} driven back. Troy holds!`, 'log-good');
-  } else {
-    applyGarrisonLoss(0.02);
-    G.addLog(`🏆 ${config.attacker} crushed decisively. Troy's glory grows!`, 'log-good');
-  }
-
-  // Stability effects: battles shake social cohesion
-  const stabDelta = { decisive_victory: +8, victory: +4, pyrrhic: -3, defeat: -12, sack: -22 }[outcome] ?? 0;
-  G.stability = Math.max(0, Math.min(100, G.stability + stabDelta));
-
-  // Diplomatic war: update scores based on result
-  if (config.regionId) {
-    const d = G.regionState[config.regionId]?.diplo;
-    if (d?.atWar) {
-      if (outcome === 'decisive_victory' || outcome === 'victory') {
-        d.score = clampScore(d.score + 10); // war weariness — they may seek peace
-        if (d.score > -10) { d.atWar = false; G.addLog(`${config.attacker} retreats. War ends.`, 'log-good'); }
-      } else if (outcome === 'sack' || outcome === 'defeat') {
-        d.score = clampScore(d.score - 8);  // emboldened
-      }
-    }
-  }
-}
-
-function showBattleModal(result, onDone) {
-  const { config, atkSize, rounds, outcome, atkTotalCas, defTotalCas, atkTotalRolls, defTotalRolls,
-          garrisonBefore, garrisonAfter, mLossExp, iLossExp, isExpedition } = result;
-  const year = 1250 - (G.turn - 1) * 7;
-
-  document.getElementById('bmod-year').textContent     = `${year} BC`;
-  document.getElementById('bmod-subtitle').textContent = config.desc;
-
-  if (isExpedition) {
-    // Left card = Troy army (attacker); Right card = city (defender)
-    document.getElementById('bmod-title').textContent    = `Troy Expedition — ${result.cityLabel}`;
-    document.getElementById('bmod-atk-icon').textContent = '♟';
-    document.getElementById('bmod-atk-name').textContent = 'TROY ARMY';
-    document.getElementById('bmod-atk-size').textContent = `Militia: ${garrisonBefore.militia}  Infantry: ${garrisonBefore.infantry}`;
-    document.getElementById('bmod-atk-power').textContent = `Str: ${Math.round(atkTotalRolls)}`;
-    document.getElementById('bmod-def-size').textContent  = `${result.cityIcon} ${result.cityLabel}`;
-    document.getElementById('bmod-def-power').textContent = `Garrison: ~${result.cityDefSize}`;
-    document.getElementById('bmod-def-walls').textContent = `🏰 Fortified city ×1.20`;
-  } else {
-    // Normal defence: Left card = enemy; Right card = Troy
-    document.getElementById('bmod-title').textContent    = `Battle of Troy — ${config.attacker}`;
-    document.getElementById('bmod-atk-icon').textContent = config.attackerIcon;
-    document.getElementById('bmod-atk-name').textContent = config.attacker;
-    document.getElementById('bmod-atk-size').textContent = `Army: ${atkSize}`;
-    document.getElementById('bmod-atk-power').textContent = `Power: ${Math.round(atkTotalRolls)}`;
-    document.getElementById('bmod-def-size').textContent  = `Militia: ${garrisonBefore.militia}  Infantry: ${garrisonBefore.infantry}  (str: ${getGarrisonStrength()})`;
-    document.getElementById('bmod-def-power').textContent = `Power: ${Math.round(defTotalRolls)}`;
-    document.getElementById('bmod-def-walls').textContent = `🏰 Walls ×${(1 + G.walls * 0.28).toFixed(2)}`;
-  }
-
-  const maxPow = Math.max(atkTotalRolls, defTotalRolls);
-  document.getElementById('bmod-bar-atk').style.width = `${Math.round(atkTotalRolls / maxPow * 100)}%`;
-  document.getElementById('bmod-bar-def').style.width = `${Math.round(defTotalRolls / maxPow * 100)}%`;
-
-  document.getElementById('bmod-phases').innerHTML = rounds.map((rnd, i) => {
-    // "winner" label: in expedition Troy is atk side, in defence Troy is def side
-    const troyWon = isExpedition ? rnd.atkRoll >= rnd.defRoll : rnd.defRoll >= rnd.atkRoll;
-    const winner = troyWon ? '🛡 Troy holds' : '⚔ Enemy presses';
-    return `<div class="battle-phase">
-      <div class="phase-name">Phase ${i+1}: ${rnd.name}</div>
-      <div class="phase-desc">${rnd.desc}</div>
-      <div class="phase-losses">
-        <span class="phase-atk-loss">⚔ −${rnd.atkCas}</span>
-        <span class="phase-winner">${winner}</span>
-        <span class="phase-def-loss">🛡 −${rnd.defCas}</span>
-      </div>
-    </div>`;
-  }).join('');
-
-  const outcomeLabels = isExpedition
-    ? {
-        decisive_victory: { icon: '🏆', title: 'CITY SACKED',       cls: 'result-victory' },
-        victory:          { icon: '✓',  title: 'RAID SUCCESSFUL',    cls: 'result-victory' },
-        pyrrhic:          { icon: '⚔',  title: 'PYRRHIC RAID',       cls: 'result-pyrrhic' },
-        defeat:           { icon: '💀', title: 'REPELLED',           cls: 'result-defeat'  },
-        sack:             { icon: '🔥', title: 'ROUTED',             cls: 'result-defeat'  },
-      }
-    : {
-        decisive_victory: { icon: '🏆', title: 'DECISIVE VICTORY',   cls: 'result-victory' },
-        victory:          { icon: '✓',  title: 'VICTORY',            cls: 'result-victory' },
-        pyrrhic:          { icon: '⚔',  title: 'PYRRHIC VICTORY',    cls: 'result-pyrrhic' },
-        defeat:           { icon: '💀', title: 'DEFEAT',             cls: 'result-defeat'  },
-        sack:             { icon: '🔥', title: 'CITY SACKED',        cls: 'result-defeat'  },
-      };
-
-  const outcomeInfo = outcomeLabels[outcome];
-  document.getElementById('bmod-result-icon').textContent  = outcomeInfo.icon;
-  const titleEl = document.getElementById('bmod-result-title');
-  titleEl.textContent = outcomeInfo.title;
-  titleEl.className   = outcomeInfo.cls;
-
-  const totalLoss = mLossExp + iLossExp;
-  if (isExpedition) {
-    // Swap: left shows city losses, right shows Troy's army losses
-    document.getElementById('bmod-atk-cas').textContent = `${result.cityLabel} casualties: ${defTotalCas}`;
-    document.getElementById('bmod-def-cas').innerHTML =
-      totalLoss > 0
-        ? `Troy army: ${garrisonBefore.militia}+${garrisonBefore.infantry} → ` +
-          `<span class="bmod-loss-after">${garrisonAfter.militia}+${garrisonAfter.infantry}</span>` +
-          ` &nbsp;(−${mLossExp} militia, −${iLossExp} infantry)`
-        : `Troy army: ${garrisonBefore.militia}+${garrisonBefore.infantry} — no significant losses`;
-  } else {
-    document.getElementById('bmod-atk-cas').textContent = `${config.attacker} casualties: ${atkTotalCas}`;
-    document.getElementById('bmod-def-cas').innerHTML =
-      totalLoss > 0
-        ? `Troy garrison: ${garrisonBefore.militia}+${garrisonBefore.infantry} → ` +
-          `<span class="bmod-loss-after">${garrisonAfter.militia}+${garrisonAfter.infantry}</span>` +
-          ` &nbsp;(−${mLossExp} militia, −${iLossExp} infantry)`
-        : `Troy garrison: ${garrisonBefore.militia}+${garrisonBefore.infantry} — no significant losses`;
-  }
-
+function simulateBattle(battle, onComplete) {
   const modal = document.getElementById('battle-modal');
+  const isSurvival = battle.type === 'defense';
+
+  document.getElementById('bmod-year').textContent = bcYear();
+  document.getElementById('bmod-title').textContent = battle.title || 'Battle!';
+  document.getElementById('bmod-subtitle').textContent = battle.subtitle || '';
+  document.getElementById('bmod-atk-icon').textContent = battle.atkIcon || '⚔';
+  document.getElementById('bmod-atk-name').textContent = battle.atkName || 'Attacker';
+  document.getElementById('bmod-atk-size').textContent = `Army: ${battle.atkSize || '?'} units`;
+
+  const garr = getTotalGarrison();
+  const garPow = getGarrisonStrength();
+  const wallBonus = G.buildings.walls * 5;
+  document.getElementById('bmod-def-size').textContent = `Garrison: ${garr} units`;
+  document.getElementById('bmod-def-power').textContent = `Strength: ${garPow + wallBonus}`;
+  document.getElementById('bmod-def-walls').textContent = `Walls: ${G.buildings.walls}/5`;
+
+  const atkPow = battle.atkPower || 30;
+  document.getElementById('bmod-atk-power').textContent = `Strength: ${atkPow}`;
+  const defPow = garPow + wallBonus;
+  const totalPow = atkPow + defPow;
+  document.getElementById('bmod-bar-atk').style.width = `${Math.round(atkPow / totalPow * 100)}%`;
+  document.getElementById('bmod-bar-def').style.width = `${Math.round(defPow / totalPow * 100)}%`;
+
+  // Generate phases
+  let phases = '';
+  let atkLeft = battle.atkSize || 10;
+  let defLeft = garr;
+  let atkTotalLoss = 0, defTotalLoss = 0;
+
+  for (let i = 0; i < PHASE_NAMES.length; i++) {
+    const frac = LOSS_FRAC[i];
+    const atkLoss = Math.max(0, Math.round(atkLeft * frac * (defPow / (atkPow + 1))));
+    const defLoss = Math.max(0, Math.round(defLeft * frac * (atkPow / (defPow + wallBonus + 1))));
+    atkLeft = Math.max(0, atkLeft - atkLoss);
+    defLeft = Math.max(0, defLeft - defLoss);
+    atkTotalLoss += atkLoss;
+    defTotalLoss += defLoss;
+    phases += `<div class="bmod-phase">
+      <div class="bmod-phase-name">${PHASE_NAMES[i]}</div>
+      <div class="bmod-phase-desc">${PHASE_DESCS[i]}</div>
+      <div class="bmod-phase-losses">ATK −${atkLoss} &nbsp;|&nbsp; DEF −${defLoss}</div>
+    </div>`;
+  }
+  document.getElementById('bmod-phases').innerHTML = phases;
+
+  // Determine result
+  const defWins = defPow >= atkPow * 0.8; // defender advantage
+  document.getElementById('bmod-result-icon').textContent = defWins ? '🛡' : '💀';
+  document.getElementById('bmod-result-title').textContent = defWins ? 'Troy Holds!' : 'Troy is Sacked!';
+  document.getElementById('bmod-atk-cas').textContent = `Attacker: −${atkTotalLoss} units`;
+  document.getElementById('bmod-def-cas').textContent = `Defender: −${defTotalLoss} units`;
+
   modal.style.display = 'flex';
 
-  const btn = document.getElementById('bmod-continue');
-  const handler = () => {
+  document.getElementById('bmod-continue').onclick = () => {
     modal.style.display = 'none';
-    btn.removeEventListener('click', handler);
-    onDone();
+    applyBattleResult(battle, defWins, defTotalLoss, atkTotalLoss);
+    onComplete && onComplete();
+    renderAll();
   };
-  btn.addEventListener('click', handler);
 }
 
-function checkVictory() {
-  if (G.turn > G.maxTurns) {
-    if (G.population > 20 && G.walls >= 1) {
-      const score = G.population + G.walls * 10 + getTotalGarrison() + G.res.bronze * 2 + G.res.gold
-                  + Math.round(G.stability / 5)  // social cohesion reward
-                  + (G.ironWorking ? 20 : 0);     // prestige of iron age transition
-      endGame(true, `Troy has endured 100 years of catastrophe. As other great cities fell to fire and famine, Wilusa stood firm. The Bronze Age has ended — but your city breathes on into the new age. Poets will one day sing of Troy not for its fall, but for its endurance.`, score);
-    } else {
-      endGame(false, `Troy survived, but barely. Your walls crumble, your people are few. The dark age descends. History will remember Troy as a city that fell with the age that made it.`);
+function applyBattleResult(battle, defWins, defLoss, atkLoss) {
+  if (!defWins) {
+    // Sack: lose resources, population, walls
+    const grainLost = Math.floor(G.res.grain * 0.3);
+    const goldLost  = Math.floor(G.res.gold * 0.2);
+    G.res.grain = Math.max(0, G.res.grain - grainLost);
+    G.res.gold  = Math.max(0, G.res.gold  - goldLost);
+    G.buildings.walls = Math.max(0, G.buildings.walls - 1);
+    applyGarrisonLoss(0.4);
+    killPopUnits(Math.floor(popTotal() * 0.1));
+    G.dynasty.legitimacy = Math.max(0, G.dynasty.legitimacy - 15);
+    G.disruption = Math.min(10, G.disruption + 0.5);
+    G.addLog(`⚔ DEFEAT: Troy sacked! Lost ${grainLost} grain, ◎${goldLost} gold, walls damaged.`, 'log-bad');
+    // Update diplo
+    if (battle.regionId && G.regionState[battle.regionId]?.diplo) {
+      G.regionState[battle.regionId].diplo.score = Math.max(-100, G.regionState[battle.regionId].diplo.score - 20);
     }
+  } else {
+    // Defense: lose some garrison
+    applyGarrisonLoss(defLoss / Math.max(1, getTotalGarrison()) * 0.5);
+    G.dynasty.legitimacy = Math.min(100, G.dynasty.legitimacy + 5);
+    G.addLog(`🛡 VICTORY: Troy repels the attack! Defender losses: ${defLoss} units.`, 'log-good');
   }
 }
 
-function endGame(victory, text, score) {
-  document.getElementById('next-turn-btn').disabled = true;
+// ─── VICTORY / END GAME ───────────────────────────────────────
+function checkVictory() {
+  const total = popTotal();
+  const legit = G.dynasty.legitimacy;
+  const walls = G.buildings.walls;
+
+  let score = Math.floor(total * 0.5 + legit * 3 + G.res.gold * 0.2 + walls * 10 + G.res.grain * 0.1);
+  let title, text;
+
+  if (legit >= 70 && total >= 80 && walls >= 2) {
+    title = '🏆 Troy Endures!';
+    text = `Your dynasty has guided Wilusa through 15 years of Bronze Age crisis. The city stands strong.`;
+  } else if (legit >= 40 && total >= 50) {
+    title = '⚖ Twilight Dynasty';
+    text = `Troy survives, but weakened. Your dynasty clings to power as the Bronze Age collapses around you.`;
+  } else {
+    title = '🌅 A Fading Glory';
+    text = `Wilusa endures, but the golden age has passed. Your dynasty's hold is tenuous at best.`;
+  }
+
+  endGame(true, title, text, score);
+}
+
+function endGame(victory, title, text, score) {
   const screen = document.getElementById('gameover-screen');
-  document.getElementById('gameover-icon').textContent   = victory ? '⚔' : '💀';
-  document.getElementById('gameover-title').textContent  = victory ? 'TROY ENDURES' : 'TROY FALLS';
-  document.getElementById('gameover-title').className    = victory ? 'title-victory' : 'title-defeat';
-  document.getElementById('gameover-text').textContent   = text;
-  document.getElementById('gameover-score').textContent  = score
-    ? `Final Score: ${score} · Year Reached: ${1250 - (Math.min(G.turn, G.maxTurns)-1)*7} BC`
-    : '';
+  document.getElementById('gameover-icon').textContent = victory ? '🏺' : '💀';
+  document.getElementById('gameover-title').textContent = title;
+  document.getElementById('gameover-text').textContent = text;
+  document.getElementById('gameover-score').textContent = score ? `Score: ${score}` : '';
+  document.getElementById('game-screen').style.display = 'none';
   screen.style.display = 'flex';
 }
 
-// ─── BOTTOM BAR TABS ─────────────────────────────────────────
-document.addEventListener('click', e => {
-  const tab = e.target.closest('.bottom-tab');
-  if (!tab) return;
-  const group  = tab.dataset.group;
-  const target = tab.dataset.target;
-  // Deactivate all tabs in group, hide all content panels
-  document.querySelectorAll(`.bottom-tab[data-group="${group}"]`).forEach(t => t.classList.remove('active'));
-  document.querySelectorAll(`.bottom-tab-content[data-group="${group}"]`).forEach(p => { p.style.display = 'none'; });
-  // Activate clicked tab and show its panel
-  tab.classList.add('active');
-  const panel = document.getElementById(target);
-  if (panel) { panel.style.display = ''; }
-  // Render content for newly shown panel
-  if (target === 'politics-content')  renderPoliticsPanel();
-  if (target === 'price-chart-panel') renderPriceChart();
+// ─── NEXT TURN BUTTON ─────────────────────────────────────────
+document.getElementById('next-turn-btn').addEventListener('click', () => {
+  advanceTurn();
 });
 
-// ─── START GAME ──────────────────────────────────────────────
+// ─── BEGIN BUTTON ─────────────────────────────────────────────
 document.getElementById('begin-btn').addEventListener('click', () => {
   document.getElementById('intro-screen').style.display = 'none';
   document.getElementById('game-screen').style.display = 'flex';
-
+  renderAll();
+  updateLetterBadge();
   resizeCanvas();
-  window.addEventListener('resize', () => { resizeCanvas(); drawMap(); });
-
-  // Show turn 1 event
-  const firstEv = EVENTS.find(e => e.turn === 1);
-  if (firstEv) {
-    const summary = applyEffects(firstEv.effects);
-    renderAll();
-    showEventModal(firstEv, summary, () => { renderAll(); });
-  } else {
-    renderAll();
-  }
-
-  G.addLog('You have taken the throne of Wilusa. Troy stands at the Hellespont.', 'log-event');
+  drawMap();
+  G.addLog('Your reign begins. The Bronze Age world awaits.', 'log-norm');
 });
+
+// ─── WINDOW RESIZE ────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  drawMap();
+});
+
