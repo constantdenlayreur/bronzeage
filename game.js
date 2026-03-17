@@ -107,7 +107,7 @@ const REGIONS = {
     cx: 480, cy: 133,
     poly: [[293,107],[427,93],[560,93],[667,133],[653,173],[613,187],[560,160],[453,147],[320,160],[293,160]],
     fillColor: '#221c0c', borderColor: '#7a6822',
-    desc: 'Northern raiders along the Black Sea coast. Constant thorn in the Hittite Empire's side. They do not trade — they raid.',
+    desc: "Northern raiders along the Black Sea coast. Constant thorn in the Hittite Empire's side. They do not trade — they raid.",
     relation: 'hostile',
     exports: {},
     noTrade: true,
