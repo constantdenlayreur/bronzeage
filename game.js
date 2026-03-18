@@ -3346,3 +3346,8 @@ window.addEventListener('resize', () => {
   drawMap();
 });
 
+// Wire SVG map as soon as DOM is ready (before begin-btn click)
+document.addEventListener('DOMContentLoaded', () => {
+  initMapSVG();
+});
+
