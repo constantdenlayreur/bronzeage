@@ -399,6 +399,13 @@ const G = {
   // Drought
   droughtLevel: 0,
 
+  // Famine
+  famine: false,
+  famineStreak: 0,   // consecutive turns with famine
+
+  // Population history for chart (up to 30 entries)
+  popHistory: [],
+
   // Trade
   tradeDoneThisTurn: false,
   lastTradedRegionId: null,
@@ -530,30 +537,58 @@ function computeProduction() {
 }
 
 function popGrainConsumption() {
-  // Every unit eats 0.15 grain per turn; traders eat a bit more
-  return Math.max(1, Math.ceil(popTotal() * 0.15));
+  // Each unit eats 0.15 grain per turn; during famine civilians eat 2x
+  const civPop = G.pop.peasant + G.pop.artisan + G.pop.trader + G.pop.patrician;
+  const milPop = G.pop.militia + G.pop.legionary;
+  const famMult = G.famine ? 2.0 : 1.0;
+  return Math.max(1, Math.ceil(civPop * 0.15 * famMult + milPop * 0.15));
 }
 
 function feedPopulation() {
   const need = popGrainConsumption();
   if (G.res.grain >= need) {
     G.res.grain -= need;
-    // Slight population growth in summer if food surplus
-    if (isSummer() && G.res.grain >= need * 2 && popTotal() < 200) {
-      const growChance = Math.random();
-      if (growChance < 0.25) {
+    // Clear famine when food is sufficient
+    if (G.famine) {
+      G.famine = false;
+      G.famineStreak = 0;
+      G.addLog('🌾 Food stores replenished — famine ends.', 'log-good');
+    }
+    // Population growth: only in summer, with food surplus and not in drought
+    if (isSummer() && G.res.grain >= need && popTotal() < 200 && G.droughtLevel === 0) {
+      // Growth chance scales with food surplus, farms, and stability
+      const surplusMult = Math.min(2.0, G.res.grain / Math.max(1, need));
+      const farmBoost = G.buildings.farms * 0.05;
+      const stabBoost = G.stability >= 70 ? 0.1 : 0;
+      const growChance = Math.min(0.60, 0.15 * surplusMult + farmBoost + stabBoost);
+      if (Math.random() < growChance) {
         G.pop.peasant++;
-        G.addLog('🌾 Population grows — new peasant family settles.', 'log-good');
+        G.addLog(`🌾 Population grows! +1 peasant family (${popTotal()} units · ${popTotal()*100} people).`, 'log-good');
+      }
+    } else if (!isSummer() && G.res.grain >= need * 2 && popTotal() < 200 && G.droughtLevel === 0) {
+      // Small chance of winter growth if massive surplus
+      if (Math.random() < 0.08) {
+        G.pop.peasant++;
+        G.addLog(`🌾 Families arrive seeking shelter — +1 peasant unit.`, 'log-good');
       }
     }
   } else {
+    // Famine: insufficient food
     const deficit = need - G.res.grain;
     G.res.grain = 0;
-    // Lose population units proportional to deficit
-    const unitsLost = Math.min(Math.ceil(deficit / 0.15), 3);
+    G.famine = true;
+    G.famineStreak++;
+    // Losses scale with deficit and famine streak
+    const unitsLost = Math.min(Math.ceil(deficit / 0.12) + Math.floor(G.famineStreak / 3), 5);
     killPopUnits(unitsLost);
-    G.addLog(`💀 Famine! ${unitsLost} population unit(s) lost (not enough grain).`, 'log-crisis');
+    const extraMsg = G.famineStreak >= 3 ? ' Mass starvation spreads!' : '';
+    G.addLog(`💀 FAMINE! ${unitsLost} population unit(s) lost (${popTotal()*100} people remain).${extraMsg}`, 'log-crisis');
+    // Famine hurts faction loyalty
+    G.factions.city.loyalty    = Math.max(0, G.factions.city.loyalty    - 8);
+    G.factions.military.loyalty= Math.max(0, G.factions.military.loyalty- 4);
   }
+  // Always record pop history entry this turn
+  recordPopHistory();
 }
 
 function killPopUnits(n) {
@@ -1211,6 +1246,23 @@ function recordPriceHistory() {
   if (G.priceHistory.length > 30) G.priceHistory.shift();
 }
 
+function recordPopHistory() {
+  G.popHistory.push({
+    turn:    G.turn,
+    famine:  G.famine,
+    total:   popTotal(),
+    pop: {
+      peasant:   G.pop.peasant,
+      artisan:   G.pop.artisan,
+      militia:   G.pop.militia,
+      legionary: G.pop.legionary,
+      trader:    G.pop.trader,
+      patrician: G.pop.patrician,
+    },
+  });
+  if (G.popHistory.length > 32) G.popHistory.shift();
+}
+
 // ─── APPLY EVENT EFFECTS ─────────────────────────────────────
 function applyEffects(effects) {
   const summary = [];
@@ -1253,6 +1305,21 @@ function applyEffects(effects) {
         summary.push({ text: 'Troy is FREE! No more tribute. Legitimacy +10.', cls: 'eff-good' });
         break;
       case 'siege':
+        // Queue a battle against the attacker
+        G._pendingModals = G._pendingModals || [];
+        G._pendingModals.push({
+          type: 'battle',
+          data: {
+            title:    eff.title  || 'SIEGE!',
+            subtitle: eff.subtitle || 'Enemy forces attack Troy',
+            atkName:  eff.atkName  || 'Mycenaean Army',
+            atkIcon:  eff.atkIcon  || '⚔',
+            atkSize:  eff.atkSize  || 25,
+            atkPower: eff.attackStrength || 40,
+            regionId: eff.regionId || 'mycenae',
+            type:     'defense',
+          },
+        });
         summary.push({ text: eff.desc, cls: 'eff-bad' });
         break;
     }
@@ -1955,13 +2022,16 @@ function getDiplomaticWarBattles() {
 
     d.warAttackTurn = G.turn;
     const effMilitary = id === 'hatti' ? getHattiMilitary() : prof.military;
+    const atkSize = effMilitary + Math.floor(Math.random() * 18);
     battles.push({
-      attacker:     REGIONS[id].name,
-      attackerIcon: REGIONS[id].icon,
-      baseSize:     effMilitary + Math.floor(Math.random() * 18),
-      type:         effMilitary >= 60 ? 'invasion' : effMilitary >= 35 ? 'siege' : 'raid',
-      desc:         `${REGIONS[id].name} forces march on Troy in open war.`,
-      regionId:     id,
+      title:    `${REGIONS[id].name} Attacks!`,
+      subtitle: `${REGIONS[id].name} forces march on Troy in open war.`,
+      atkName:  REGIONS[id].name,
+      atkIcon:  REGIONS[id].icon,
+      atkSize,
+      atkPower: effMilitary,
+      type:     'defense',
+      regionId: id,
     });
   });
   return battles;
@@ -2290,6 +2360,129 @@ function renderDynastyBar() {
   if (el('ruler-legitimacy')) el('ruler-legitimacy').textContent = d.legitimacy;
 }
 
+
+// ─── POPULATION CHART ────────────────────────────────────────
+const POP_COLORS = {
+  peasant:   '#6a9038',
+  artisan:   '#c87030',
+  militia:   '#8060a0',
+  legionary: '#c04030',
+  trader:    '#3080c0',
+  patrician: '#d4a017',
+};
+const POP_KEYS = ['peasant','artisan','trader','patrician','militia','legionary'];
+
+function drawPopChart() {
+  const canvas = document.getElementById('pop-chart');
+  if (!canvas) return;
+  const ctx2 = canvas.getContext('2d');
+  const W = canvas.offsetWidth || canvas.width;
+  const H = canvas.offsetHeight || canvas.height;
+  canvas.width  = W;
+  canvas.height = H;
+
+  ctx2.clearRect(0, 0, W, H);
+  ctx2.fillStyle = '#0d0900';
+  ctx2.fillRect(0, 0, W, H);
+
+  const history = G.popHistory;
+  if (history.length < 2) {
+    ctx2.fillStyle = '#3a2800';
+    ctx2.font = '10px Georgia';
+    ctx2.textAlign = 'center';
+    ctx2.fillText('Gathering data...', W / 2, H / 2 + 4);
+    return;
+  }
+
+  const maxTotal = Math.max(...history.map(h => h.total), 1);
+  const pad = { l: 2, r: 2, t: 4, b: 14 };
+  const cW = W - pad.l - pad.r;
+  const cH = H - pad.t - pad.b;
+  const n  = history.length;
+
+  function xOf(i) { return pad.l + (i / (n - 1)) * cW; }
+  function yOf(v) { return pad.t + cH - (v / maxTotal) * cH; }
+
+  // Draw famine bands
+  history.forEach((h, i) => {
+    if (h.famine) {
+      const x0 = i === 0 ? pad.l : xOf(i - 0.5);
+      const x1 = i === n - 1 ? pad.l + cW : xOf(i + 0.5);
+      ctx2.fillStyle = 'rgba(192,48,24,0.18)';
+      ctx2.fillRect(x0, pad.t, x1 - x0, cH);
+    }
+  });
+
+  // Draw gridlines
+  ctx2.strokeStyle = '#1a1200';
+  ctx2.lineWidth = 1;
+  for (let g = 0.25; g < 1; g += 0.25) {
+    const y = pad.t + cH * (1 - g);
+    ctx2.beginPath(); ctx2.moveTo(pad.l, y); ctx2.lineTo(pad.l + cW, y); ctx2.stroke();
+  }
+
+  // Stacked area chart
+  // For each point, compute cumulative stack bottoms
+  const stackedPaths = {};
+  const bottoms = new Array(n).fill(0);
+
+  for (const key of POP_KEYS) {
+    const pts = history.map((h, i) => [xOf(i), yOf(bottoms[i] + h.pop[key])]);
+    const bots = history.map((h, i) => [xOf(i), yOf(bottoms[i])]);
+
+    // Build path: forward along top, backward along bottom
+    ctx2.beginPath();
+    ctx2.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < n; i++) ctx2.lineTo(pts[i][0], pts[i][1]);
+    for (let i = n - 1; i >= 0; i--) ctx2.lineTo(bots[i][0], bots[i][1]);
+    ctx2.closePath();
+    ctx2.fillStyle = POP_COLORS[key] + 'b0';
+    ctx2.fill();
+
+    // Advance bottoms
+    for (let i = 0; i < n; i++) bottoms[i] += history[i].pop[key];
+  }
+
+  // Total line
+  ctx2.beginPath();
+  ctx2.moveTo(xOf(0), yOf(history[0].total));
+  for (let i = 1; i < n; i++) ctx2.lineTo(xOf(i), yOf(history[i].total));
+  ctx2.strokeStyle = '#f0d060';
+  ctx2.lineWidth = 1.5;
+  ctx2.stroke();
+
+  // Turn labels on x-axis
+  ctx2.fillStyle = '#4a3010';
+  ctx2.font = '8px Georgia';
+  ctx2.textAlign = 'center';
+  const step = Math.max(1, Math.floor(n / 6));
+  for (let i = 0; i < n; i += step) {
+    ctx2.fillText(history[i].turn, xOf(i), H - 3);
+  }
+
+  // Current total label
+  const last = history[n - 1];
+  ctx2.fillStyle = '#d4a017';
+  ctx2.font = 'bold 9px Georgia';
+  ctx2.textAlign = 'right';
+  ctx2.fillText(`${last.total * 100}`, W - pad.r, yOf(last.total) - 2);
+
+  // Legend
+  const legend = document.getElementById('pop-chart-legend');
+  if (legend) {
+    legend.innerHTML = POP_KEYS.map(k =>
+      `<div class="pop-legend-item">
+        <div class="pop-legend-dot" style="background:${POP_COLORS[k]}"></div>
+        <span>${k.charAt(0).toUpperCase() + k.slice(1)}</span>
+      </div>`
+    ).join('');
+  }
+
+  // Famine indicator
+  const fi = document.getElementById('famine-indicator');
+  if (fi) fi.style.display = G.famine ? 'block' : 'none';
+}
+
 function renderPopSection() {
   const container = document.getElementById('pop-classes');
   if (!container) return;
@@ -2334,6 +2527,9 @@ function renderPopSection() {
       ${btns}
     </div>`;
   }).join('');
+
+  // Draw population chart
+  requestAnimationFrame(drawPopChart);
 }
 
 function renderFactionsSection() {
@@ -2795,29 +2991,88 @@ document.getElementById('tmod-confirm').addEventListener('click', () => {
   renderAll();
 });
 
+// ─── MODAL QUEUE ─────────────────────────────────────────────
+// All turn-end modals (events, tribute, battles) are queued and shown one at a time.
+
+let _modalQueue = [];
+let _modalRunning = false;
+
+function queueModal(type, data) {
+  _modalQueue.push({ type, data });
+}
+
+function drainModalQueue() {
+  if (_modalRunning || _modalQueue.length === 0) {
+    if (!_modalRunning) {
+      renderAll();
+      updateLetterBadge();
+    }
+    return;
+  }
+  _modalRunning = true;
+  const next = _modalQueue.shift();
+  if (next.type === 'event') {
+    _openEventModal(next.data, () => {
+      _modalRunning = false;
+      drainModalQueue();
+    });
+  } else if (next.type === 'tribute') {
+    _openTributeModal(() => {
+      _modalRunning = false;
+      drainModalQueue();
+    });
+  } else if (next.type === 'battle') {
+    simulateBattle(next.data, () => {
+      _modalRunning = false;
+      drainModalQueue();
+    });
+  } else {
+    _modalRunning = false;
+    drainModalQueue();
+  }
+}
+
 // ─── EVENT MODAL ─────────────────────────────────────────────
-function showEventModal(ev, extraEffects) {
+let _eventModalCallback = null;
+
+function _openEventModal(ev, callback) {
+  _eventModalCallback = callback;
   const modal = document.getElementById('event-modal');
   document.getElementById('emod-icon').textContent = ev.icon || '📜';
   document.getElementById('emod-title').textContent = ev.title;
   document.getElementById('emod-text').textContent = ev.text;
 
-  // Show effects
-  const effects = extraEffects || ev.effects || [];
-  document.getElementById('emod-effects').innerHTML = effects.map(e =>
-    `<div class="emod-effect ${e.good ? 'effect-good' : 'effect-bad'}">${e.text}</div>`
-  ).join('');
+  // Show effects summary
+  const effects = ev.effectSummary || ev.effects || [];
+  document.getElementById('emod-effects').innerHTML = effects.map(e => {
+    const cls = e.cls === 'eff-good' ? 'effect-good' : 'effect-bad';
+    const text = e.text || e.desc || '';
+    return text ? `<div class="emod-effect ${cls}">${text}</div>` : '';
+  }).join('');
+
+  // Log text
+  if (ev.logText) G.addLog(ev.logText, ev.logClass || 'log-event');
 
   modal.style.display = 'flex';
 }
 
+// Legacy shim so other code can still call showEventModal
+function showEventModal(ev, extraEffects) {
+  queueModal('event', { ...ev, effectSummary: extraEffects || ev.effects || [] });
+}
+
 document.getElementById('emod-continue').addEventListener('click', () => {
   document.getElementById('event-modal').style.display = 'none';
-  renderAll();
+  const cb = _eventModalCallback;
+  _eventModalCallback = null;
+  if (cb) cb(); else drainModalQueue();
 });
 
 // ─── TRIBUTE MODAL ───────────────────────────────────────────
-function showTributeModal() {
+let _tributeModalCallback = null;
+
+function _openTributeModal(callback) {
+  _tributeModalCallback = callback;
   const modal = document.getElementById('tribute-modal');
   const due = G.tributeDoubleThisTurn ? 6 : 3;
   document.getElementById('trib-due-amount').textContent = due;
@@ -2830,10 +3085,20 @@ function showTributeModal() {
   modal.style.display = 'flex';
 }
 
+function showTributeModal() {
+  queueModal('tribute', {});
+}
+
+function _closeTributeModal() {
+  document.getElementById('tribute-modal').style.display = 'none';
+  const cb = _tributeModalCallback;
+  _tributeModalCallback = null;
+  if (cb) cb(); else drainModalQueue();
+}
+
 document.getElementById('trib-pay-btn').addEventListener('click', () => {
   payTribute();
-  document.getElementById('tribute-modal').style.display = 'none';
-  renderAll();
+  _closeTributeModal();
 });
 
 document.getElementById('trib-refuse-btn').addEventListener('click', () => {
@@ -2842,8 +3107,7 @@ document.getElementById('trib-refuse-btn').addEventListener('click', () => {
   if (d) d.score = Math.max(-100, d.score - 15);
   G.dynasty.legitimacy = Math.max(0, G.dynasty.legitimacy - 5);
   G.addLog('You refused to pay tribute to Hatti. The Great King is angered.', 'log-bad');
-  document.getElementById('tribute-modal').style.display = 'none';
-  renderAll();
+  _closeTributeModal();
 });
 
 // ─── DIPLO MODAL LISTENERS ────────────────────────────────────
@@ -2861,84 +3125,90 @@ document.getElementById('letter-close').addEventListener('click', () => {
 
 // ─── ADVANCE TURN ─────────────────────────────────────────────
 function advanceTurn() {
+  // Reset modal queue for this turn
+  _modalQueue = [];
+  _modalRunning = false;
+  G._pendingModals = [];
+
   const wasSum = isSummer();
 
-  // 1. Compute production & resources
-  computeProduction();
+  // 1. Compute production
+  const prod = computeProduction();
+
   if (wasSum) {
-    // Grain from farms + peasants
-    const grainProduced = Math.floor(G.pop.peasant * 2 + G.buildings.farms * 5) + G.production.farmland;
-    G.res.grain += grainProduced;
-    G.addLog(`Summer harvest: +${grainProduced} grain from ${G.pop.peasant} peasant units.`, 'log-norm');
+    G.res.grain += prod.grain;
+    if (prod.grain > 0) G.addLog(`☀ Summer harvest: +${prod.grain} grain (${G.pop.peasant} peasants, farms lv${G.buildings.farms}).`, 'log-norm');
+    else G.addLog('☀ Summer: drought devastates harvest.', 'log-crisis');
   } else {
-    G.addLog('Winter: no grain production.', 'log-norm');
+    G.addLog('❄ Winter: no grain production.', 'log-norm');
   }
 
-  // 2. Artisan production
-  if (G.pop.artisan > 0) {
-    const copperMade = Math.floor(G.pop.artisan * 0.5 + G.buildings.workshop * 1);
-    if (copperMade > 0) {
-      G.res.copper += copperMade;
-    }
+  // 2. Artisan/workshop production
+  if (prod.bronze > 0) {
+    G.res.bronze += prod.bronze;
   }
 
-  // 3. Gold from traders & tolls
-  const traderGold = Math.floor(G.pop.trader * getTaxGoldMult() * 2);
-  const tollGold   = G.production.tollgate;
-  G.res.gold += traderGold + tollGold;
-  if (traderGold + tollGold > 0) {
-    G.addLog(`Trade income: +◎${traderGold + tollGold} gold (traders: ${traderGold}, tolls: ${tollGold}).`, 'log-norm');
-  }
+  // 3. Gold from traders + tolls
+  G.res.gold += prod.gold;
+  if (prod.gold > 0) G.addLog(`◎ Income: +${prod.gold} gold (traders: ${G.pop.trader}, tolls lv${G.buildings.harbor}).`, 'log-norm');
 
   // 4. Feed population & garrison
   feedPopulation();
   feedGarrison();
 
-  // 5. Events
+  // 5. Historical events → queued as modal
   const ev = EVENTS.find(e => e.turn === G.turn);
   if (ev) {
-    applyEffects(ev.effects || {});
-    showEventModal(ev);
+    const summary = applyEffects(ev.effects || []);
+    // Attach summary to event data for modal display
+    queueModal('event', { ...ev, effectSummary: summary });
+    // Also queue any siege battles registered by applyEffects
+    if (G._pendingModals) {
+      G._pendingModals.forEach(m => queueModal(m.type, m.data));
+      G._pendingModals = [];
+    }
   }
+
+  // 6. Mini-event (instant, no modal)
   rollMiniEvent();
 
-  // 6. Letters generation
+  // 7. Letters
   tryGenerateLetters();
 
-  // 7. Tribute prompt (every summer, if vassal of Hatti)
+  // 8. Tribute (every summer while vassal)
   if (wasSum && G.vassalOfHatti) {
     G.tributeDoubleThisTurn = (Math.random() < 0.2);
     G.tributeRefusedThisTurn = false;
-    showTributeModal();
+    queueModal('tribute', {});
   }
 
-  // 8. Battles from diplomacy / nation wars
+  // 9. Battles from nation wars / diplomacy
   updateNationWars();
-  buildAndProcessRandomBattles();
+  getDiplomaticWarBattles().forEach(b => queueModal('battle', b));
 
-  // 9. Update factions, dynasty, diplomacy
+  // 10. Update systems
   updateFactions();
   checkFactionCrises();
   updateDynasty();
   updateDiplomacyPerTurn();
   updateDrought();
 
-  // 10. Price history
+  // 11. Record histories
   recordPriceHistory();
+  // popHistory is recorded inside feedPopulation
 
-  // 11. Reset per-turn flags
+  // 12. Reset per-turn flags
   G.tradeDoneThisTurn = false;
   G.lastTradedRegionId = null;
 
-  // 12. Advance turn counter
+  // 13. Advance turn counter
   G.turn++;
 
-  // 13. Check victory / defeat
+  // 14. Check defeat before showing modals
   if (!checkTurnEnd()) return;
 
-  // 14. Re-render
-  renderAll();
-  updateLetterBadge();
+  // 15. Drain modal queue (will renderAll when done)
+  drainModalQueue();
 }
 
 function checkTurnEnd() {
@@ -3062,8 +3332,8 @@ function simulateBattle(battle, onComplete) {
   document.getElementById('bmod-continue').onclick = () => {
     modal.style.display = 'none';
     applyBattleResult(battle, defWins, defTotalLoss, atkTotalLoss);
-    onComplete && onComplete();
-    renderAll();
+    if (onComplete) onComplete();
+    else drainModalQueue();
   };
 }
 
@@ -3134,6 +3404,8 @@ document.getElementById('next-turn-btn').addEventListener('click', () => {
 document.getElementById('begin-btn').addEventListener('click', () => {
   document.getElementById('intro-screen').style.display = 'none';
   document.getElementById('game-screen').style.display = 'flex';
+  // Seed initial population history entry
+  recordPopHistory();
   renderAll();
   updateLetterBadge();
   resizeCanvas();
