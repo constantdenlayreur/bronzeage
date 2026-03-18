@@ -225,9 +225,9 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 6, icon: '📜', title: 'Afghan Tin Disruption',
+    turn: 40, icon: '📜', title: 'Afghan Tin Disruption',
     text: 'Nomadic migrations disrupt the tin caravans from Afghanistan. Tin prices are rising.',
-    effects: [{ type:'price_global', resource:'tin', mult:1.5, desc:'Tin +50%' }],
+    effects: [{ type:'price_global', resource:'tin', mult:1.75, desc:'Tin +75%' }],
     logText: 'Afghan tin routes disrupted — tin prices rising.',
     logClass: 'log-event',
   },
@@ -242,28 +242,28 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 10, icon: '👑', title: 'Hittite Tribute Demand',
+    turn: 50, icon: '👑', title: 'Hittite Tribute Demand',
     text: 'The Great King of Hatti has sent envoys. He demands double tribute this year.',
     effects: [{ type:'tribute_double', desc:'Tribute doubles to 6 bronze this turn' }],
     logText: 'Hatti demands double tribute — 6 bronze due.',
     logClass: 'log-tribute',
   },
   {
-    turn: 12, icon: '🏴‍☠️', title: 'The Sea Peoples',
+    turn: 17, icon: '🏴‍☠️', title: 'The Sea Peoples',
     text: 'Reports arrive of mysterious raiders from the sea. They strike without warning, burning coastal villages.',
     effects: [{ type:'price_global', resource:'copper', mult:1.3, desc:'Copper +30% (Cyprus anxiety)' }],
     logText: 'Sea Peoples first reported in the Eastern Mediterranean.',
     logClass: 'log-crisis',
   },
   {
-    turn: 14, icon: '⚔', title: 'The Trojan War',
+    turn: 25, icon: '⚔', title: 'The Trojan War',
     text: 'A great Mycenaean fleet has sailed for your shores! The city walls will be tested.',
-    effects: [{ type:'siege', attackStrength:40, desc:'Mycenaean siege!' }],
+    effects: [{ type:'siege', attackStrength:200, desc:'Mycenaean siege!' }],
     logText: 'MYCENAEAN FORCES BESIEGE TROY!',
     logClass: 'log-crisis', isSiege: true,
   },
   {
-    turn: 16, icon: '🔥', title: 'Cyprus Burns',
+    turn: 60, icon: '🔥', title: 'Cyprus Burns',
     text: 'The Sea Peoples have sacked the great copper cities of Cyprus. Copper shipments have ceased.',
     effects: [
       { type:'destroy_region', regionId:'cyprus', desc:'Cyprus destroyed' },
@@ -281,7 +281,14 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 20, icon: '💀', title: 'Ugarit Falls',
+    turn: 130, icon: '🌋', title: 'Terrible Earthquakes',
+    text: 'A series of devastating earthquakes strikes Anatolia. Your walls crack.',
+    effects: [{ type:'damage_walls', amount:2, desc:'Walls −2 (earthquake)' }],
+    logText: 'Earthquake damages Troy\'s walls.',
+    logClass: 'log-crisis',
+  },
+  {
+    turn: 130, icon: '💀', title: 'Ugarit Falls', 
     text: 'Ugarit — the greatest trading city in the world — has been burned to the ground.',
     effects: [
       { type:'destroy_region', regionId:'ugarit', desc:'Ugarit destroyed' },
@@ -291,7 +298,7 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 22, icon: '🌑', title: 'Hatti Collapses',
+    turn: 104, icon: '🌑', title: 'Hatti Collapses',
     text: 'The Hittite Empire — your overlord for a century — has collapsed. Troy is no longer a vassal. You are free — but the world order has ended.',
     effects: [
       { type:'free_from_vassalage', desc:'No more tribute to Hatti' },
@@ -301,7 +308,7 @@ const EVENTS = [
     logClass: 'log-event',
   },
   {
-    turn: 24, icon: '🏴‍☠️', title: 'Sea Peoples Invade Egypt',
+    turn: 140, icon: '🏴‍☠️', title: 'Sea Peoples Invade Egypt',
     text: 'The Sea Peoples have reached Egypt. Grain exports are cut off entirely.',
     effects: [
       { type:'reduce_export', regionId:'egypt', resource:'grain', amount:8, desc:'Egypt grain halted' },
@@ -311,7 +318,7 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 26, icon: '🔥', title: 'Anatolia Burns',
+    turn: 150, icon: '🔥', title: 'Anatolia Burns',
     text: 'City after city in Anatolia is abandoned or burned. Troy stands increasingly alone.',
     effects: [
       { type:'destroy_region', regionId:'arzawa', desc:'Arzawa falls' },
@@ -321,14 +328,14 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 28, icon: '🛡', title: 'Mycenae Falls',
+    turn: 100, icon: '🛡', title: 'Mycenae Falls',
     text: 'The great citadels of Mycenae have been abandoned. The Aegean falls silent.',
     effects: [{ type:'destroy_region', regionId:'mycenae', desc:'Mycenae falls' }],
     logText: 'Mycenae collapses. The Aegean is dark.',
     logClass: 'log-event',
   },
   {
-    turn: 30, icon: '⚔', title: 'Final Stand',
+    turn: 160, icon: '⚔', title: 'Final Stand',
     text: 'The Bronze Age is ending. Civilizations that stood for centuries have crumbled. Troy still stands. Will you endure to the dawn of a new age?',
     effects: [], logText: 'The final season. Can Troy survive?',
     logClass: 'log-event', isFinal: true,
@@ -339,11 +346,11 @@ const EVENTS = [
 // ─── GAME STATE ──────────────────────────────────────────────
 const G = {
   turn: 1,
-  maxTurns: 30,  // 30 half-years = 15 full years
+  maxTurns: 160,  // 160 half-years = 80 full years
 
   // Resources
   res: {
-    grain: 50, copper: 8, tin: 4, bronze: 6, gold: 30,
+    grain: 50, copper: 2, tin: 3, bronze: 4, gold: 15,
     silver: 0, olive_oil: 0, pottery: 0, timber: 0, horses: 0, purple_dye: 0,
   },
 
@@ -516,7 +523,7 @@ function computeProduction() {
   const dm = droughtGrainMult();
 
   // Grain: peasants produce only in summer; farms building boosts it
-  const farmBonus = G.buildings.farms * 0.15;
+  const farmBonus = G.buildings.farms * 0.1;
   const grainPerPeasant = isSummer() ? (0.8 + farmBonus) * dm * sm : 0;
   const grain = Math.max(0, Math.round(G.pop.peasant * grainPerPeasant));
 
@@ -654,11 +661,11 @@ function demobilize(type) {
 
 // ─── BUILDINGS ───────────────────────────────────────────────
 const BUILDING_DEFS = {
-  walls:    { icon:'🏰', name:'Walls',    maxLevel:5, cost: (lv) => ({ bronze: 5 }),          desc:'Defense multiplier' },
-  harbor:   { icon:'⛵', name:'Harbor',   maxLevel:3, cost: (lv) => ({ gold: 10 }),            desc:'Attracts traders, +gold' },
-  workshop: { icon:'⚒', name:'Workshop', maxLevel:3, cost: (lv) => ({ gold: 8 }),             desc:'Enables more artisans' },
-  farms:    { icon:'🌾', name:'Farms',    maxLevel:3, cost: (lv) => ({ gold: 6 }),             desc:'Boosts grain from peasants' },
-  palace:   { icon:'🏛', name:'Palace',   maxLevel:3, cost: (lv) => ({ gold: 10, bronze: 2 }), desc:'Pleases palatial faction' },
+  walls:    { icon:'🏰', name:'Walls',    maxLevel:5, cost: (lv) => ({ bronze: 7 }),          desc:'Defense multiplier' },
+  harbor:   { icon:'⛵', name:'Harbor',   maxLevel:3, cost: (lv) => ({ gold: 30 }),            desc:'Attracts traders, +gold' },
+  workshop: { icon:'⚒', name:'Workshop', maxLevel:3, cost: (lv) => ({ gold: 14 }),             desc:'Enables more artisans' },
+  farms:    { icon:'🌾', name:'Farms',    maxLevel:3, cost: (lv) => ({ gold: 20 }),             desc:'Boosts grain from peasants' },
+  palace:   { icon:'🏛', name:'Palace',   maxLevel:3, cost: (lv) => ({ gold: 20, bronze: 5 }), desc:'Pleases palatial faction' },
 };
 
 function buildBuilding(type) {
