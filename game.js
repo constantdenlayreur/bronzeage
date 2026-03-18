@@ -12,16 +12,16 @@ const REF_W = 1200, REF_H = 800;
 const REGIONS = {
   troy: {
     name: 'Troy (Wilusa)', icon: '⚔', isPlayer: true,
-    cx: 200, cy: 213,
-    poly: [[187,191],[227,200],[240,219],[227,243],[187,240],[173,227],[173,205]],
+    cx: 218, cy: 182,
+    poly: [[215,148],[268,142],[298,165],[302,198],[275,224],[240,228],[215,224],[215,162]],
     fillColor: '#4a2e08', borderColor: '#d4a017',
-    desc: 'Hail Priam, Son of Laomedon. Your city. Guards the Hellespont, commanding the strait between the Aegean and Black Sea.',
+    desc: 'Hail Priamm, Son of Laomedon. Your city. Guards the Hellespont, commanding the strait between the Aegean and Black Sea.',
     relation: 'player', exports: {}, distance: 0,
   },
   mycenae: {
-    name: 'Mycenae', icon: 'α', isPlayer: false,
-    cx: 80, cy: 280,
-    poly: [[40,243],[120,243],[147,253],[147,280],[133,307],[93,320],[53,307],[40,280]],
+    name: 'Mycenae', icon: '🛡', isPlayer: false,
+    cx: 65, cy: 298,
+    poly: [[15,260],[92,254],[107,274],[105,312],[82,342],[44,348],[14,322],[12,288]],
     fillColor: '#2e1e44', borderColor: '#9a5cc0',
     desc: 'The great warrior kingdoms of Greece. Rich in silver and olive oil — but hungry for bronze. As the saying goes  : Timeo danaos et dona ferentes',
     relation: 'suspicious', distance: 2,
@@ -33,8 +33,8 @@ const REGIONS = {
   },
   crete: {
     name: 'Crete (Knossos)', icon: '🐂', isPlayer: false,
-    cx: 160, cy: 339,
-    poly: [[120,327],[147,327],[173,333],[200,331],[219,341],[187,349],[147,349],[120,344]],
+    cx: 148, cy: 392,
+    poly: [[88,382],[152,378],[195,384],[208,398],[180,410],[142,412],[95,405]],
     fillColor: '#1a2040', borderColor: '#4878b8',
     desc: 'Island realm of Knossos. Safe and prosperous, a crossroads of Aegean trade.',
     relation: 'friendly', distance: 2,
@@ -46,8 +46,8 @@ const REGIONS = {
   },
   arzawa: {
     name: 'Arzawa', icon: '🌲', isPlayer: false,
-    cx: 280, cy: 272,
-    poly: [[227,227],[333,227],[347,253],[347,280],[320,307],[280,320],[253,320],[240,307],[213,280],[213,253],[213,213],[227,243]],
+    cx: 292, cy: 278,
+    poly: [[215,228],[240,228],[275,224],[340,222],[368,252],[368,308],[342,342],[295,358],[248,355],[220,325],[215,282]],
     fillColor: '#183520', borderColor: '#4a9038',
     desc: 'Your western neighbour in Anatolia. Rich in timber, grain, and horses.',
     relation: 'neutral', distance: 1,
@@ -60,8 +60,8 @@ const REGIONS = {
   },
   hatti: {
     name: 'Hatti (Hittites)', icon: '👑', isPlayer: false,
-    cx: 467, cy: 213,
-    poly: [[320,187],[320,160],[453,147],[560,160],[613,187],[613,227],[560,280],[507,280],[440,267],[387,253],[347,253],[333,227]],
+    cx: 492, cy: 198,
+    poly: [[340,138],[455,118],[575,122],[662,155],[668,215],[645,265],[580,292],[510,298],[435,292],[368,272],[368,252],[340,222],[340,138]],
     fillColor: '#2e1010', borderColor: '#c83028',
     desc: 'Your overlord. The Hittite Empire spans central Anatolia. They demand tribute in bronze each year.',
     relation: 'overlord', distance: 2,
@@ -74,8 +74,8 @@ const REGIONS = {
   },
   kashka: {
     name: 'Kashka', icon: '🗡', isPlayer: false,
-    cx: 480, cy: 133,
-    poly: [[293,107],[427,93],[560,93],[667,133],[653,173],[613,187],[560,160],[453,147],[320,160],[293,160]],
+    cx: 480, cy: 88,
+    poly: [[278,58],[438,42],[578,47],[688,80],[692,155],[662,155],[575,122],[455,118],[340,138],[278,118],[278,78]],
     fillColor: '#221c0c', borderColor: '#7a6822',
     desc: "Northern raiders along the Black Sea coast. They do not trade — they raid.",
     relation: 'hostile', distance: 2,
@@ -83,8 +83,8 @@ const REGIONS = {
   },
   cyprus: {
     name: 'Cyprus (Alashiya)', icon: '⚒', isPlayer: false,
-    cx: 384, cy: 344,
-    poly: [[347,327],[387,327],[413,333],[427,347],[413,360],[360,360],[347,347]],
+    cx: 455, cy: 360,
+    poly: [[415,352],[458,347],[492,355],[498,368],[468,378],[428,376],[412,362]],
     fillColor: '#2a1608', borderColor: '#c87030',
     desc: 'The great copper island. Cyprus supplies most of the copper in the Mediterranean world.',
     relation: 'friendly', distance: 3,
@@ -95,8 +95,8 @@ const REGIONS = {
   },
   ugarit: {
     name: 'Ugarit / Syria', icon: '🏺', isPlayer: false,
-    cx: 480, cy: 333,
-    poly: [[440,293],[533,293],[547,320],[533,347],[493,373],[440,373],[427,347],[440,320]],
+    cx: 548, cy: 325,
+    poly: [[515,302],[572,298],[605,315],[608,352],[580,378],[538,382],[510,362],[508,328]],
     fillColor: '#142a18', borderColor: '#3a8030',
     desc: 'The greatest trading hub of the age. Ugarit connects east and west, north and south.',
     relation: 'neutral', distance: 3,
@@ -109,8 +109,8 @@ const REGIONS = {
   },
   canaan: {
     name: 'Canaan', icon: '🌿', isPlayer: false,
-    cx: 440, cy: 413,
-    poly: [[440,373],[493,373],[467,400],[440,427],[413,453],[427,467],[440,453],[427,427],[440,387]],
+    cx: 525, cy: 415,
+    poly: [[508,362],[580,378],[575,408],[548,442],[515,462],[485,448],[488,418],[490,388]],
     fillColor: '#182810', borderColor: '#588030',
     desc: 'Fertile coastal land rich in grain and olive oil.',
     relation: 'neutral', distance: 4,
@@ -122,8 +122,8 @@ const REGIONS = {
   },
   egypt: {
     name: 'Egypt', icon: '𓂀', isPlayer: false,
-    cx: 333, cy: 540,
-    poly: [[0,440],[133,413],[160,440],[347,445],[373,467],[387,507],[413,560],[400,613],[427,667],[467,747],[480,800],[0,800]],
+    cx: 328, cy: 545,
+    poly: [[0,440],[138,415],[165,440],[355,445],[382,468],[402,512],[418,562],[402,615],[428,668],[468,748],[480,800],[0,800]],
     fillColor: '#2e2400', borderColor: '#d4aa20',
     desc: 'The eternal grain basket of the world. Egypt exports enormous quantities of grain and gold.',
     relation: 'friendly', distance: 4,
@@ -135,8 +135,8 @@ const REGIONS = {
   },
   assyria: {
     name: 'Assyria (Assur)', icon: '🦁', isPlayer: false,
-    cx: 640, cy: 307,
-    poly: [[560,280],[667,280],[707,307],[693,347],[653,360],[573,347],[547,320],[547,293]],
+    cx: 688, cy: 298,
+    poly: [[642,262],[722,255],[775,275],[785,318],[758,358],[692,368],[642,348],[635,308]],
     fillColor: '#221408', borderColor: '#c86828',
     desc: 'The great trading empire of the north. Assyrian merchants operate the tin routes from Afghanistan.',
     relation: 'neutral', distance: 4,
@@ -148,8 +148,8 @@ const REGIONS = {
   },
   babylon: {
     name: 'Babylon', icon: '🏛', isPlayer: false,
-    cx: 720, cy: 400,
-    poly: [[667,280],[747,280],[813,320],[853,373],[827,427],[760,467],[667,453],[653,400],[653,360],[693,347],[707,307]],
+    cx: 768, cy: 398,
+    poly: [[722,355],[812,348],[882,378],[902,432],[878,482],[808,512],[722,508],[682,465],[685,418]],
     fillColor: '#0e1828', borderColor: '#2870b8',
     desc: 'Ancient city of Hammurabi. The heart of Mesopotamia, rich in gold and tin routed from the east.',
     relation: 'neutral', distance: 5,
@@ -161,8 +161,8 @@ const REGIONS = {
   },
   elam: {
     name: 'Elam (Susa)', icon: '🔶', isPlayer: false,
-    cx: 827, cy: 427,
-    poly: [[853,373],[933,373],[987,427],[960,480],[880,493],[787,493],[760,467],[827,427]],
+    cx: 878, cy: 440,
+    poly: [[902,432],[968,422],[1028,452],[1018,512],[952,545],[878,542],[835,512],[835,482],[878,482]],
     fillColor: '#1c0e0e', borderColor: '#983828',
     desc: 'Far eastern kingdom at the edge of the known world.',
     relation: 'neutral', distance: 5,
@@ -197,17 +197,17 @@ const BASE_PRICES = {
 
 // ─── CITY LIST ────────────────────────────────────────────────
 const CITY_LIST = [
-  { id:'hattusa',  label:'HATTUSA',  x:417, y:213, region:'hatti'    },
-  { id:'nineveh',  label:'NINEVEH',  x:644, y:310, region:'assyria'  },
-  { id:'babylon',  label:'BABYLON',  x:678, y:412, region:'babylon'  },
-  { id:'thebes',   label:'THEBES',   x:364, y:594, region:'egypt'    },
-  { id:'ugarit',   label:'UGARIT',   x:448, y:330, region:'ugarit'   },
-  { id:'mycenae',  label:'MYCENAE',  x:100, y:274, region:'mycenae'  },
-  { id:'knossos',  label:'KNOSSOS',  x:164, y:339, region:'crete'    },
-  { id:'susa',     label:'SUSA',     x:780, y:422, region:'elam'     },
-  { id:'enkomi',   label:'ENKOMI',   x:389, y:344, region:'cyprus'   },
-  { id:'ashdod',   label:'ASHDOD',   x:416, y:432, region:'canaan'   },
-  { id:'apasa',    label:'APASA',    x:221, y:280, region:'arzawa'   },
+  { id:'hattusa',  label:'HATTUSA',  x:492, y:195, region:'hatti'    },
+  { id:'nineveh',  label:'NINEVEH',  x:695, y:295, region:'assyria'  },
+  { id:'babylon',  label:'BABYLON',  x:770, y:395, region:'babylon'  },
+  { id:'thebes',   label:'THEBES',   x:348, y:598, region:'egypt'    },
+  { id:'ugarit',   label:'UGARIT',   x:548, y:328, region:'ugarit'   },
+  { id:'mycenae',  label:'MYCENAE',  x:65,  y:298, region:'mycenae'  },
+  { id:'knossos',  label:'KNOSSOS',  x:148, y:390, region:'crete'    },
+  { id:'susa',     label:'SUSA',     x:878, y:438, region:'elam'     },
+  { id:'enkomi',   label:'ENKOMI',   x:455, y:360, region:'cyprus'   },
+  { id:'ashdod',   label:'ASHDOD',   x:525, y:418, region:'canaan'   },
+  { id:'apasa',    label:'APASA',    x:292, y:278, region:'arzawa'   },
 ];
 
 // ─── HISTORICAL EVENTS (30-turn system: 1 event per 2 turns) ─
@@ -225,9 +225,9 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 40, icon: '📜', title: 'Afghan Tin Disruption',
+    turn: 6, icon: '📜', title: 'Afghan Tin Disruption',
     text: 'Nomadic migrations disrupt the tin caravans from Afghanistan. Tin prices are rising.',
-    effects: [{ type:'price_global', resource:'tin', mult:1.75, desc:'Tin +75%' }],
+    effects: [{ type:'price_global', resource:'tin', mult:1.5, desc:'Tin +50%' }],
     logText: 'Afghan tin routes disrupted — tin prices rising.',
     logClass: 'log-event',
   },
@@ -242,28 +242,28 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 50, icon: '👑', title: 'Hittite Tribute Demand',
+    turn: 10, icon: '👑', title: 'Hittite Tribute Demand',
     text: 'The Great King of Hatti has sent envoys. He demands double tribute this year.',
     effects: [{ type:'tribute_double', desc:'Tribute doubles to 6 bronze this turn' }],
     logText: 'Hatti demands double tribute — 6 bronze due.',
     logClass: 'log-tribute',
   },
   {
-    turn: 17, icon: '🏴‍☠️', title: 'The Sea Peoples',
+    turn: 12, icon: '🏴‍☠️', title: 'The Sea Peoples',
     text: 'Reports arrive of mysterious raiders from the sea. They strike without warning, burning coastal villages.',
     effects: [{ type:'price_global', resource:'copper', mult:1.3, desc:'Copper +30% (Cyprus anxiety)' }],
     logText: 'Sea Peoples first reported in the Eastern Mediterranean.',
     logClass: 'log-crisis',
   },
   {
-    turn: 25, icon: '⚔', title: 'The Trojan War',
+    turn: 14, icon: '⚔', title: 'The Trojan War',
     text: 'A great Mycenaean fleet has sailed for your shores! The city walls will be tested.',
-    effects: [{ type:'siege', attackStrength:200, desc:'Mycenaean siege!' }],
+    effects: [{ type:'siege', attackStrength:40, desc:'Mycenaean siege!' }],
     logText: 'MYCENAEAN FORCES BESIEGE TROY!',
     logClass: 'log-crisis', isSiege: true,
   },
   {
-    turn: 60, icon: '🔥', title: 'Cyprus Burns',
+    turn: 16, icon: '🔥', title: 'Cyprus Burns',
     text: 'The Sea Peoples have sacked the great copper cities of Cyprus. Copper shipments have ceased.',
     effects: [
       { type:'destroy_region', regionId:'cyprus', desc:'Cyprus destroyed' },
@@ -281,14 +281,7 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 130, icon: '🌋', title: 'Terrible Earthquakes',
-    text: 'A series of devastating earthquakes strikes Anatolia. Your walls crack.',
-    effects: [{ type:'damage_walls', amount:2, desc:'Walls −2 (earthquake)' }],
-    logText: 'Earthquake damages Troy\'s walls.',
-    logClass: 'log-crisis',
-  },
-  {
-    turn: 130, icon: '💀', title: 'Ugarit Falls', 
+    turn: 20, icon: '💀', title: 'Ugarit Falls',
     text: 'Ugarit — the greatest trading city in the world — has been burned to the ground.',
     effects: [
       { type:'destroy_region', regionId:'ugarit', desc:'Ugarit destroyed' },
@@ -298,7 +291,7 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 104, icon: '🌑', title: 'Hatti Collapses',
+    turn: 22, icon: '🌑', title: 'Hatti Collapses',
     text: 'The Hittite Empire — your overlord for a century — has collapsed. Troy is no longer a vassal. You are free — but the world order has ended.',
     effects: [
       { type:'free_from_vassalage', desc:'No more tribute to Hatti' },
@@ -308,7 +301,7 @@ const EVENTS = [
     logClass: 'log-event',
   },
   {
-    turn: 140, icon: '🏴‍☠️', title: 'Sea Peoples Invade Egypt',
+    turn: 24, icon: '🏴‍☠️', title: 'Sea Peoples Invade Egypt',
     text: 'The Sea Peoples have reached Egypt. Grain exports are cut off entirely.',
     effects: [
       { type:'reduce_export', regionId:'egypt', resource:'grain', amount:8, desc:'Egypt grain halted' },
@@ -318,7 +311,7 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 150, icon: '🔥', title: 'Anatolia Burns',
+    turn: 26, icon: '🔥', title: 'Anatolia Burns',
     text: 'City after city in Anatolia is abandoned or burned. Troy stands increasingly alone.',
     effects: [
       { type:'destroy_region', regionId:'arzawa', desc:'Arzawa falls' },
@@ -328,14 +321,14 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 100, icon: '🛡', title: 'Mycenae Falls',
+    turn: 28, icon: '🛡', title: 'Mycenae Falls',
     text: 'The great citadels of Mycenae have been abandoned. The Aegean falls silent.',
     effects: [{ type:'destroy_region', regionId:'mycenae', desc:'Mycenae falls' }],
     logText: 'Mycenae collapses. The Aegean is dark.',
     logClass: 'log-event',
   },
   {
-    turn: 160, icon: '⚔', title: 'Final Stand',
+    turn: 30, icon: '⚔', title: 'Final Stand',
     text: 'The Bronze Age is ending. Civilizations that stood for centuries have crumbled. Troy still stands. Will you endure to the dawn of a new age?',
     effects: [], logText: 'The final season. Can Troy survive?',
     logClass: 'log-event', isFinal: true,
@@ -346,11 +339,11 @@ const EVENTS = [
 // ─── GAME STATE ──────────────────────────────────────────────
 const G = {
   turn: 1,
-  maxTurns: 160,  // 160 half-years = 80 full years
+  maxTurns: 30,  // 30 half-years = 15 full years
 
   // Resources
   res: {
-    grain: 50, copper: 2, tin: 3, bronze: 4, gold: 15,
+    grain: 50, copper: 8, tin: 4, bronze: 6, gold: 30,
     silver: 0, olive_oil: 0, pottery: 0, timber: 0, horses: 0, purple_dye: 0,
   },
 
@@ -523,7 +516,7 @@ function computeProduction() {
   const dm = droughtGrainMult();
 
   // Grain: peasants produce only in summer; farms building boosts it
-  const farmBonus = G.buildings.farms * 0.1;
+  const farmBonus = G.buildings.farms * 0.15;
   const grainPerPeasant = isSummer() ? (0.8 + farmBonus) * dm * sm : 0;
   const grain = Math.max(0, Math.round(G.pop.peasant * grainPerPeasant));
 
@@ -661,11 +654,11 @@ function demobilize(type) {
 
 // ─── BUILDINGS ───────────────────────────────────────────────
 const BUILDING_DEFS = {
-  walls:    { icon:'🏰', name:'Walls',    maxLevel:5, cost: (lv) => ({ bronze: 7 }),          desc:'Defense multiplier' },
-  harbor:   { icon:'⛵', name:'Harbor',   maxLevel:3, cost: (lv) => ({ gold: 30 }),            desc:'Attracts traders, +gold' },
-  workshop: { icon:'⚒', name:'Workshop', maxLevel:3, cost: (lv) => ({ gold: 14 }),             desc:'Enables more artisans' },
-  farms:    { icon:'🌾', name:'Farms',    maxLevel:3, cost: (lv) => ({ gold: 20 }),             desc:'Boosts grain from peasants' },
-  palace:   { icon:'🏛', name:'Palace',   maxLevel:3, cost: (lv) => ({ gold: 20, bronze: 5 }), desc:'Pleases palatial faction' },
+  walls:    { icon:'🏰', name:'Walls',    maxLevel:5, cost: (lv) => ({ bronze: 5 }),          desc:'Defense multiplier' },
+  harbor:   { icon:'⛵', name:'Harbor',   maxLevel:3, cost: (lv) => ({ gold: 10 }),            desc:'Attracts traders, +gold' },
+  workshop: { icon:'⚒', name:'Workshop', maxLevel:3, cost: (lv) => ({ gold: 8 }),             desc:'Enables more artisans' },
+  farms:    { icon:'🌾', name:'Farms',    maxLevel:3, cost: (lv) => ({ gold: 6 }),             desc:'Boosts grain from peasants' },
+  palace:   { icon:'🏛', name:'Palace',   maxLevel:3, cost: (lv) => ({ gold: 10, bronze: 2 }), desc:'Pleases palatial faction' },
 };
 
 function buildBuilding(type) {
@@ -1358,8 +1351,8 @@ function sp(x, y) { return [x * scaleX, y * scaleY]; }
 
 function drawLandMasses() {
   const s = Math.min(scaleX, scaleY);
-  const LAND = '#c4ad78';
-  const SEA  = '#1a3550';
+  const LAND  = '#c4ad78';
+  const SEA   = '#1a3550';
   const COAST = '#8a7240';
 
   ctx.fillStyle = SEA;
@@ -1367,46 +1360,56 @@ function drawLandMasses() {
 
   function poly(pts, fill, stroke) {
     const [x0, y0] = sp(pts[0][0], pts[0][1]);
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
+    ctx.beginPath(); ctx.moveTo(x0, y0);
     for (let i = 1; i < pts.length; i++) {
       const [px, py] = sp(pts[i][0], pts[i][1]);
       ctx.lineTo(px, py);
     }
     ctx.closePath();
-    if (fill)   { ctx.fillStyle = fill;     ctx.fill();   }
+    if (fill)   { ctx.fillStyle = fill;     ctx.fill(); }
     if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 0.8 * s; ctx.stroke(); }
   }
 
-  poly([[0,0],[200,0],[213,107],[213,173],[147,200],[133,213],[107,253],
-        [107,280],[93,307],[67,320],[40,280],[27,253],[40,213],[0,213]],
-       LAND, COAST);
+  // ── Greece / Thrace peninsula ──
+  poly([
+    [0,0],[178,0],[212,80],[215,155],[192,205],[165,245],
+    [138,285],[108,325],[82,368],[55,405],[28,440],[0,440]
+  ], LAND, COAST);
 
-  poly([[267,173],[427,93],[614,93],[653,133],[653,173],[560,187],[507,200],
-        [453,213],[440,267],[440,320],[373,320],[320,320],[267,320],[240,307],
-        [213,280],[213,253],[213,200],[267,173]],
-       LAND, COAST);
+  // ── Anatolia (Troy → Hatti → Kashka) ──
+  poly([
+    [215,155],[288,78],[440,52],[578,57],[685,90],[722,155],
+    [722,332],[695,372],[648,402],[578,415],[510,408],
+    [438,415],[378,402],[322,382],[265,352],[222,315],
+    [215,248],[215,155]
+  ], LAND, COAST);
 
-  poly([[453,320],[440,387],[413,453],[347,467],[267,440],[133,413],
-        [0,440],[0,800],[1200,800],[1200,107],[987,160],[854,173],[694,133],
-        [653,173],[613,227],[560,280],[507,280],[453,320]],
-       LAND, COAST);
+  // ── Eastern + Southern landmass (Levant, Mesopotamia, Egypt) ──
+  poly([
+    [722,155],[798,78],[970,45],[1200,0],[1200,800],[0,800],
+    [0,440],[28,440],[82,368],[285,462],[362,462],[440,468],
+    [505,472],[535,508],[565,538],[602,525],[625,488],
+    [658,455],[692,422],[695,402],[648,402],[722,372],[722,155]
+  ], LAND, COAST);
 
-  poly([[120,327],[147,327],[173,333],[200,331],[219,341],[187,349],[147,349],[120,344]],
-       LAND, COAST);
-  poly([[340,320],[387,320],[440,333],[427,340],[443,340],[360,340],[347,340]],
-       LAND, COAST);
+  // ── Crete island ──
+  poly([[88,382],[152,378],[195,384],[208,398],[180,410],[142,412],[95,405]], LAND, COAST);
+  // ── Cyprus island ──
+  poly([[415,352],[458,347],[492,355],[498,368],[468,378],[428,376],[412,362]], LAND, COAST);
 
-  poly([[227,160],[240,120],[373,107],[507,93],[600,120],[627,160],
-        [573,173],[480,187],[347,187],[280,173],[227,173]], SEA);
-  poly([[827,27],[920,27],[933,107],[907,187],[920,253],[840,293],
-        [800,267],[813,213],[867,160]], SEA);
-  poly([[360,480],[413,493],[440,547],[480,613],[493,667],[520,733],
-        [520,800],[480,800],[467,747],[453,680],[453,613],[427,560],
-        [400,507],[360,480]], SEA);
-  poly([[747,480],[827,480],[907,533],[1000,573],[1013,613],[1000,640],
-        [960,587],[880,533],[787,493],[747,480]], SEA);
+  // ── Sea cutouts ──
+  // Black Sea
+  poly([[215,0],[215,155],[288,78],[440,52],[578,57],[685,90],[722,110],[722,0]], SEA);
+  // Aegean inlet (notch between Greece and Anatolia)
+  poly([[192,155],[215,155],[215,248],[192,255],[170,248],[165,215],[175,178]], SEA);
+  // Red Sea
+  poly([[360,478],[415,495],[440,548],[480,614],[495,668],[522,735],[522,800],
+        [480,800],[468,748],[452,682],[452,615],[428,562],[402,510],[360,478]], SEA);
+  // Persian Gulf
+  poly([[748,480],[828,480],[908,535],[1000,575],[1015,615],[1000,640],
+        [962,590],[882,535],[790,495],[748,480]], SEA);
 
+  // Vignette
   const vig = ctx.createRadialGradient(
     canvas.width*0.5, canvas.height*0.5, canvas.height*0.25,
     canvas.width*0.5, canvas.height*0.5, canvas.width*0.75);
@@ -1431,12 +1434,12 @@ function drawMap() {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const seaLabels = [
-    { text:'BLACK SEA',         x:400, y:133 },
-    { text:'CASPIAN SEA',       x:880, y:160 },
-    { text:'AEGEAN SEA',        x:147, y:253 },
-    { text:'MEDITERRANEAN SEA', x:240, y:360 },
-    { text:'RED SEA',           x:440, y:613 },
-    { text:'PERSIAN GULF',      x:880, y:533 },
+    { text:'BLACK SEA',         x:448, y:112 },
+    { text:'CASPIAN SEA',       x:885, y:158 },
+    { text:'AEGEAN SEA',        x:152, y:252 },
+    { text:'MEDITERRANEAN SEA', x:285, y:362 },
+    { text:'RED SEA',           x:442, y:618 },
+    { text:'PERSIAN GULF',      x:882, y:535 },
   ];
   seaLabels.forEach(l => {
     const [x, y] = sp(l.x, l.y);
@@ -1475,7 +1478,7 @@ function drawMap() {
   });
   ctx.restore();
 
-  const [tx, ty] = sp(182, 162);
+  const [tx, ty] = sp(218, 178);
   ctx.save();
   ctx.beginPath();
   ctx.arc(tx, ty, 13 * s, 0, Math.PI * 2);
@@ -1501,7 +1504,7 @@ function drawMap() {
   ctx.fillText('TROY', tx, ty - 11 * s);
   ctx.restore();
 
-  const [pawX, pawY] = sp(210, 200);
+  const [pawX, pawY] = sp(218, 195);
   const pawR = 9 * s;
   ctx.save();
   if (armySelected) {
@@ -1568,66 +1571,47 @@ function drawMap() {
 function drawRivers() {
   const s = Math.min(scaleX, scaleY);
   ctx.save();
-  ctx.strokeStyle = 'rgba(70,150,210,0.50)';
+  ctx.strokeStyle = 'rgba(70,150,210,0.55)';
   ctx.lineWidth   = 1.8 * s;
   ctx.lineCap     = 'round';
   ctx.lineJoin    = 'round';
   ctx.shadowColor = 'rgba(50,130,200,0.3)';
   ctx.shadowBlur  = 3;
 
-  ctx.beginPath();
-  let p = sp(328, 498); ctx.moveTo(p[0], p[1]);
-  p = sp(326, 470); ctx.lineTo(p[0], p[1]);
-  p = sp(322, 440); ctx.lineTo(p[0], p[1]);
-  p = sp(318, 410); ctx.lineTo(p[0], p[1]);
-  p = sp(312, 385); ctx.lineTo(p[0], p[1]);
-  ctx.stroke();
+  function river(pts) {
+    const [x0,y0] = sp(pts[0][0], pts[0][1]);
+    ctx.beginPath(); ctx.moveTo(x0, y0);
+    for (let i = 1; i < pts.length; i++) {
+      const [x1,y1] = sp(pts[i][0],   pts[i][1]);
+      const [cx,cy] = sp((pts[i-1][0]+pts[i][0])/2, (pts[i-1][1]+pts[i][1])/2);
+      ctx.quadraticCurveTo(cx, cy, x1, y1);
+    }
+    ctx.stroke();
+  }
+
+  // Nile — flows north through Egypt, forks at delta near Mediterranean
+  ctx.lineWidth = 2.0 * s;
+  river([[340,610],[336,572],[332,538],[328,508],[325,478],[330,462],[340,450]]);
   ctx.lineWidth = 1.2 * s;
-  ctx.beginPath();
-  p = sp(312, 385); ctx.moveTo(p[0], p[1]);
-  p = sp(298, 368); let cp1 = sp(302, 372);
-  ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
-  ctx.stroke();
-  ctx.beginPath();
-  p = sp(312, 385); ctx.moveTo(p[0], p[1]);
-  p = sp(325, 368); cp1 = sp(320, 372);
-  ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
-  ctx.stroke();
+  river([[340,450],[328,444],[318,440]]);  // west delta branch
+  river([[340,450],[352,444],[360,440]]);  // east delta branch
 
+  // Euphrates — from Hatti SE through Assyria, curves through Babylon to Gulf
   ctx.lineWidth = 1.6 * s;
-  ctx.beginPath();
-  p = sp(390, 145); ctx.moveTo(p[0], p[1]);
-  let cp2;
-  p = sp(450, 220); cp1 = sp(420, 170);
-  ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
-  p = sp(480, 290); cp1 = sp(470, 255);
-  ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
-  p = sp(545, 355); cp1 = sp(510, 320);
-  ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
-  p = sp(572, 420); cp1 = sp(560, 388);
-  ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
-  ctx.stroke();
+  river([[568,148],[602,188],[628,238],[648,288],[662,338],[668,388],[672,438],[675,488],[678,530]]);
 
-  ctx.beginPath();
-  p = sp(450, 148); ctx.moveTo(p[0], p[1]);
-  p = sp(498, 205); cp1 = sp(475, 170); cp2 = sp(488, 190);
-  ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
-  p = sp(540, 270); cp1 = sp(522, 238);
-  ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
-  p = sp(568, 340); cp1 = sp(555, 305);
-  ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
-  p = sp(585, 418); cp1 = sp(578, 380);
-  ctx.quadraticCurveTo(cp1[0], cp1[1], p[0], p[1]);
-  ctx.stroke();
+  // Tigris — east of Euphrates, similar course
+  river([[632,152],[662,195],[688,248],[712,302],[732,355],[748,408],[758,458],[762,508],[765,538]]);
 
+  // River labels
   ctx.font      = `italic ${Math.round(6.5 * s)}px Georgia`;
-  ctx.fillStyle = 'rgba(80,160,210,0.45)';
+  ctx.fillStyle = 'rgba(80,160,210,0.52)';
   ctx.textAlign = 'center';
   ctx.shadowBlur = 0;
   let lp;
-  lp = sp(452, 302); ctx.fillText('Euphrates', lp[0], lp[1]);
-  lp = sp(542, 292); ctx.fillText('Tigris', lp[0], lp[1]);
-  lp = sp(310, 432); ctx.fillText('Nile', lp[0], lp[1]);
+  lp = sp(648, 385); ctx.fillText('Euphrates', lp[0], lp[1]);
+  lp = sp(738, 395); ctx.fillText('Tigris',    lp[0], lp[1]);
+  lp = sp(320, 528); ctx.fillText('Nile',      lp[0], lp[1]);
   ctx.restore();
 }
 
@@ -1643,26 +1627,34 @@ function drawMountains() {
     const sz = size * s;
     ctx.beginPath();
     ctx.moveTo(x, y - sz);
-    ctx.lineTo(x - sz * 0.7, y + sz * 0.4);
-    ctx.lineTo(x + sz * 0.7, y + sz * 0.4);
+    ctx.lineTo(x - sz*0.7, y + sz*0.4);
+    ctx.lineTo(x + sz*0.7, y + sz*0.4);
     ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    ctx.fill(); ctx.stroke();
     ctx.fillStyle = 'rgba(220,210,190,0.18)';
     ctx.beginPath();
     ctx.moveTo(x, y - sz);
-    ctx.lineTo(x - sz * 0.25, y - sz * 0.35);
-    ctx.lineTo(x + sz * 0.25, y - sz * 0.35);
+    ctx.lineTo(x - sz*0.25, y - sz*0.35);
+    ctx.lineTo(x + sz*0.25, y - sz*0.35);
     ctx.closePath();
     ctx.fill();
     ctx.fillStyle = 'rgba(180,150,100,0.22)';
   }
 
-  [[248,262],[268,256],[290,252],[312,248],[334,245],[356,243],[378,241],[400,240],[422,238],[445,236]].forEach(([x,y]) => mtn(x, y, 5));
-  [[628,265],[635,292],[640,318],[644,344],[647,370]].forEach(([x,y]) => mtn(x, y, 5));
-  [[505,95],[525,89],[548,86],[570,89],[592,95]].forEach(([x,y]) => mtn(x, y, 4.5));
-  [[408,258],[412,272],[415,286]].forEach(([x,y]) => mtn(x, y, 4));
-  [[195,118],[222,112],[252,108],[282,106],[312,105]].forEach(([x,y]) => mtn(x, y, 4));
+  // Taurus mountains (south Anatolia coast)
+  [[268,338],[292,332],[315,328],[338,324],[362,320],[385,315],[408,312]].forEach(([x,y]) => mtn(x,y,5));
+  // Pontic mountains (north Anatolia, Kashka border)
+  [[318,145],[345,138],[372,133],[398,130],[425,128],[452,127],[478,128]].forEach(([x,y]) => mtn(x,y,4.5));
+  // Zagros mountains (east of Babylon/Elam)
+  [[835,345],[842,372],[848,398],[852,425],[855,452]].forEach(([x,y]) => mtn(x,y,5));
+  // Caucasus (north of map, east)
+  [[718,92],[742,85],[765,80],[788,78],[812,80]].forEach(([x,y]) => mtn(x,y,4));
+  // Aegean/Greek hills
+  [[142,265],[162,258],[182,252]].forEach(([x,y]) => mtn(x,y,4));
+  // Lebanon mountains (Levant coast)
+  [[558,318],[562,338],[565,358]].forEach(([x,y]) => mtn(x,y,3.5));
+  // Sinai
+  [[495,468],[512,478],[528,488]].forEach(([x,y]) => mtn(x,y,3.5));
 
   ctx.restore();
 }
