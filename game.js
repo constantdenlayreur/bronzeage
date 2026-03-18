@@ -15,7 +15,7 @@ const REGIONS = {
     cx: 200, cy: 213,
     poly: [[187,191],[227,200],[240,219],[227,243],[187,240],[173,227],[173,205]],
     fillColor: '#4a2e08', borderColor: '#d4a017',
-    desc: 'Your city. Guards the Hellespont, commanding the strait between the Aegean and Black Sea.',
+    desc: 'Hail Priamm, Son of Laomedon. Your city. Guards the Hellespont, commanding the strait between the Aegean and Black Sea.',
     relation: 'player', exports: {}, distance: 0,
   },
   mycenae: {
@@ -23,11 +23,11 @@ const REGIONS = {
     cx: 80, cy: 280,
     poly: [[40,243],[120,243],[147,253],[147,280],[133,307],[93,320],[53,307],[40,280]],
     fillColor: '#2e1e44', borderColor: '#9a5cc0',
-    desc: 'The great warrior kingdoms of Greece. Rich in silver and olive oil — but hungry for bronze.',
+    desc: 'The great warrior kingdoms of Greece. Rich in silver and olive oil — but hungry for bronze. As the saying goes  : Timeo danaos et dona ferentes',
     relation: 'suspicious', distance: 2,
     exports: {
       olive_oil: { name:'Olive Oil', icon:'🫒', basePrice:4, qty:5 },
-      silver:    { name:'Silver',    icon:'🥈', basePrice:6, qty:3 },
+      silver:    { name:'Silver',    icon:'🥈', basePrice:7, qty:3 },
     },
     imports: ['bronze','grain'], threatLevel: 0,
   },
