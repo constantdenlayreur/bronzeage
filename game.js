@@ -2870,18 +2870,25 @@ function renderTradeGoods(regionId) {
   }
 
   // Imports to region (sell)
-  const imps = Object.entries(region.imports || {});
+  // imports is an array of resource keys e.g. ['bronze','grain']
+  const impsRaw = region.imports || [];
+  const imps = Array.isArray(impsRaw)
+    ? impsRaw.map(r => [r, { name: RES_META[r]?.name || r, icon: RES_META[r]?.icon || '📦' }])
+    : Object.entries(impsRaw);
+
   if (imps.length > 0) {
     html += `<div class="trade-section-header" style="margin-top:10px">Sell to ${region.name}</div>`;
     for (const [res, info] of imps) {
       const price = getPrice(res, regionId, false);
       const have = G.res[res] || 0;
       const inCart = tradeCart[`sell_${res}`]?.qty || 0;
+      // Live available = what player actually has right now minus already in cart
+      const available = Math.max(0, have - inCart);
       html += `<div class="trade-row">
-        <span class="trade-res-icon">${info.icon || RES_META[res]?.icon || '📦'}</span>
-        <span class="trade-res-name">${info.name || res}</span>
+        <span class="trade-res-icon">${info.icon}</span>
+        <span class="trade-res-name">${info.name}</span>
         <span class="trade-res-price">◎${price.toFixed(1)} each</span>
-        <span class="trade-res-avail">Have: ${have - inCart}</span>
+        <span class="trade-res-avail">Have: ${available}</span>
         <div class="trade-qty-ctrl">
           <button onclick="adjustCart('sell_${res}','${res}',${have},${price},-1,'${regionId}')">-</button>
           <span id="cart-sell-${res}">${inCart}</span>
