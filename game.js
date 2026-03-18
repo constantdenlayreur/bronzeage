@@ -195,45 +195,69 @@ const BASE_PRICES = {
   gold: 1, olive_oil: 4, pottery: 3, timber: 3, horses: 8, purple_dye: 8,
 };
 
-// ─── CITY LIST ────────────────────────────────────────────────
+// ─── CITY LIST ─────────────────────────────────────────────────
+// Coordinates in 1200×800 canvas reference space
+// (converted from MAP1.png pixel centres: x×1200/1430, y×800/873)
 const CITY_LIST = [
-  { id:'hattusa',  label:'HATTUSA',  x:492, y:195, region:'hatti'    },
-  { id:'nineveh',  label:'NINEVEH',  x:695, y:295, region:'assyria'  },
-  { id:'babylon',  label:'BABYLON',  x:770, y:395, region:'babylon'  },
-  { id:'thebes',   label:'THEBES',   x:348, y:598, region:'egypt'    },
-  { id:'ugarit',   label:'UGARIT',   x:548, y:328, region:'ugarit'   },
-  { id:'mycenae',  label:'MYCENAE',  x:65,  y:298, region:'mycenae'  },
-  { id:'knossos',  label:'KNOSSOS',  x:148, y:390, region:'crete'    },
-  { id:'susa',     label:'SUSA',     x:878, y:438, region:'elam'     },
-  { id:'enkomi',   label:'ENKOMI',   x:455, y:360, region:'cyprus'   },
-  { id:'ashdod',   label:'ASHDOD',   x:525, y:418, region:'canaan'   },
-  { id:'apasa',    label:'APASA',    x:292, y:278, region:'arzawa'   },
+  { id:'hattusa',  label:'HATTUSA',  x:537, y:119, region:'hatti'    },
+  { id:'nineveh',  label:'NINEVEH',  x:755, y:220, region:'assyria'  },
+  { id:'babylon',  label:'BABYLON',  x:848, y:348, region:'babylon'  },
+  { id:'thebes',   label:'THEBES',   x:403, y:513, region:'egypt'    },
+  { id:'ugarit',   label:'UGARIT',   x:625, y:231, region:'ugarit'   },
+  { id:'mycenae',  label:'MYCENAE',  x:256, y:137, region:'mycenae'  },
+  { id:'knossos',  label:'KNOSSOS',  x:332, y:235, region:'crete'    },
+  { id:'susa',     label:'SUSA',     x:923, y:348, region:'elam'     },
+  { id:'enkomi',   label:'ENKOMI',   x:520, y:229, region:'cyprus'   },
+  { id:'ashdod',   label:'ASHDOD',   x:596, y:330, region:'canaan'   },
+  { id:'apasa',    label:'APASA',    x:361, y:170, region:'arzawa'   },
 ];
 
-// ─── HISTORICAL EVENTS (30-turn system: 1 event per 2 turns) ─
+// ─── HISTORICAL EVENTS ────────────────────────────────────────
+// Turn formula: turn = (1250 − bcYear) × 2 + 1  (odd = summer)
+// Game spans 1250–1150 BC = 200 half-year turns
 const EVENTS = [
   {
+    // 1250 BC — turn 1
     turn: 1, icon: '⚔', title: 'The Reign Begins',
     text: 'You have taken the throne of Wilusa. The Hittite Empire dominates the land. As their vassal, you owe tribute each summer — but the sea-lanes are open, and trade flows freely.',
     effects: [],
   },
   {
-    turn: 4, icon: '🌊', title: 'Mycenaean Pirates',
+    // ~1247 BC — turn 7
+    turn: 7, icon: '🌊', title: 'Mycenaean Pirates',
     text: 'Mycenaean raiders prey on trade ships in the Aegean. Sea transport costs rise.',
     effects: [{ type:'price_mod', resource:'olive_oil', regionId:'mycenae', mult:1.3, desc:'Aegean trade disrupted' }],
     logText: 'Mycenaean pirates raid Aegean shipping lanes.',
     logClass: 'log-crisis',
   },
   {
-    turn: 6, icon: '📜', title: 'Afghan Tin Disruption',
-    text: 'Nomadic migrations disrupt the tin caravans from Afghanistan. Tin prices are rising.',
+    // ~1240 BC — turn 21 — Hittite power at its peak
+    turn: 21, icon: '👑', title: 'Hittite Power at its Peak',
+    text: 'The Great King of Hatti is at the height of his power. He demands double tribute to fund his campaigns.',
+    effects: [{ type:'tribute_double', desc:'Tribute doubles to 6 bronze this turn' }],
+    logText: 'Hatti demands double tribute — 6 bronze due.',
+    logClass: 'log-tribute',
+  },
+  {
+    // ~1230 BC — turn 41 — Afghan tin routes disrupted
+    turn: 41, icon: '📜', title: 'Afghan Tin Disruption',
+    text: 'Nomadic migrations from the steppes disrupt the tin caravans from Afghanistan and Central Asia. Tin prices are rising across the world.',
     effects: [{ type:'price_global', resource:'tin', mult:1.5, desc:'Tin +50%' }],
     logText: 'Afghan tin routes disrupted — tin prices rising.',
     logClass: 'log-event',
   },
   {
-    turn: 8, icon: '☀', title: 'Drought on the Nile',
-    text: 'A prolonged drought has reduced the Nile flood. Egypt\'s grain exports are cut sharply.',
+    // ~1220 BC — turn 61 — Sea Peoples first appear
+    turn: 61, icon: '🏴‍☠️', title: 'The Sea Peoples Appear',
+    text: 'Reports arrive of mysterious raiders from the sea — the Peleset, Tjeker, Shekelesh. They strike coastal towns without warning.',
+    effects: [{ type:'price_global', resource:'copper', mult:1.3, desc:'Copper +30% (Cyprus anxiety)' }],
+    logText: 'Sea Peoples first reported in the Eastern Mediterranean.',
+    logClass: 'log-crisis',
+  },
+  {
+    // ~1210 BC — turn 81 — Nile drought
+    turn: 81, icon: '☀', title: 'Drought on the Nile',
+    text: 'A prolonged drought has reduced the Nile flood. Egypt\'s grain exports are cut sharply. Famine threatens the eastern Mediterranean.',
     effects: [
       { type:'price_global', resource:'grain', mult:1.8, desc:'Grain +80%' },
       { type:'reduce_export', regionId:'egypt', resource:'grain', amount:4, desc:'Egypt grain supply −4' },
@@ -242,29 +266,25 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 10, icon: '👑', title: 'Hittite Tribute Demand',
-    text: 'The Great King of Hatti has sent envoys. He demands double tribute this year.',
-    effects: [{ type:'tribute_double', desc:'Tribute doubles to 6 bronze this turn' }],
-    logText: 'Hatti demands double tribute — 6 bronze due.',
-    logClass: 'log-tribute',
-  },
-  {
-    turn: 12, icon: '🏴‍☠️', title: 'The Sea Peoples',
-    text: 'Reports arrive of mysterious raiders from the sea. They strike without warning, burning coastal villages.',
-    effects: [{ type:'price_global', resource:'copper', mult:1.3, desc:'Copper +30% (Cyprus anxiety)' }],
-    logText: 'Sea Peoples first reported in the Eastern Mediterranean.',
+    // ~1200 BC — turn 101 — Earthquakes across Anatolia
+    turn: 101, icon: '🌋', title: 'The Great Earthquakes',
+    text: 'A series of devastating earthquakes strikes the cities of Anatolia simultaneously. Mycenae, Tiryns, and cities across the east report destruction. Your walls crack.',
+    effects: [{ type:'damage_walls', amount:1, desc:'Walls −1 (earthquake)' }],
+    logText: 'Earthquake damages Troy\'s walls.',
     logClass: 'log-crisis',
   },
   {
-    turn: 14, icon: '⚔', title: 'The Trojan War',
-    text: 'A great Mycenaean fleet has sailed for your shores! The city walls will be tested.',
+    // ~1190 BC — turn 121 — The Trojan War
+    turn: 121, icon: '⚔', title: 'The Trojan War',
+    text: 'A great Mycenaean coalition fleet has sailed for your shores! Agamemnon leads the Achaeans. The city walls will be tested as they have never been before.',
     effects: [{ type:'siege', attackStrength:40, desc:'Mycenaean siege!' }],
     logText: 'MYCENAEAN FORCES BESIEGE TROY!',
     logClass: 'log-crisis', isSiege: true,
   },
   {
-    turn: 16, icon: '🔥', title: 'Cyprus Burns',
-    text: 'The Sea Peoples have sacked the great copper cities of Cyprus. Copper shipments have ceased.',
+    // ~1185 BC — turn 131 — Cyprus sacked
+    turn: 131, icon: '🔥', title: 'Cyprus Burns',
+    text: 'The Sea Peoples have sacked Enkomi and the great copper cities of Cyprus. Copper shipments have ceased entirely.',
     effects: [
       { type:'destroy_region', regionId:'cyprus', desc:'Cyprus destroyed' },
       { type:'price_global', resource:'copper', mult:3.0, desc:'Copper TRIPLES' },
@@ -274,15 +294,9 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 18, icon: '🌋', title: 'Earthquakes',
-    text: 'A series of devastating earthquakes strikes Anatolia. Your walls crack.',
-    effects: [{ type:'damage_walls', amount:1, desc:'Walls −1 (earthquake)' }],
-    logText: 'Earthquake damages Troy\'s walls.',
-    logClass: 'log-crisis',
-  },
-  {
-    turn: 20, icon: '💀', title: 'Ugarit Falls',
-    text: 'Ugarit — the greatest trading city in the world — has been burned to the ground.',
+    // ~1185 BC — turn 133 — Ugarit falls
+    turn: 133, icon: '💀', title: 'Ugarit Falls',
+    text: 'A letter arrives, then nothing. Ugarit — the greatest trading city in the world — has been burned to the ground. The last message read: "The ships of the enemy have come... we are besieged."',
     effects: [
       { type:'destroy_region', regionId:'ugarit', desc:'Ugarit destroyed' },
       { type:'price_global', resource:'tin', mult:2.5, desc:'Tin prices SKYROCKET' },
@@ -291,8 +305,9 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 22, icon: '🌑', title: 'Hatti Collapses',
-    text: 'The Hittite Empire — your overlord for a century — has collapsed. Troy is no longer a vassal. You are free — but the world order has ended.',
+    // ~1180 BC — turn 141 — Hatti collapses
+    turn: 141, icon: '🌑', title: 'Hatti Collapses',
+    text: 'The Hittite Empire — your overlord for generations — has collapsed. Hattusa is burned by the Kashka. Troy is no longer a vassal. You are free — but the world order has ended.',
     effects: [
       { type:'free_from_vassalage', desc:'No more tribute to Hatti' },
       { type:'destroy_region', regionId:'hatti', desc:'Hatti destroyed' },
@@ -301,18 +316,20 @@ const EVENTS = [
     logClass: 'log-event',
   },
   {
-    turn: 24, icon: '🏴‍☠️', title: 'Sea Peoples Invade Egypt',
-    text: 'The Sea Peoples have reached Egypt. Grain exports are cut off entirely.',
+    // ~1177 BC — turn 147 — Sea Peoples invade Egypt (Battle of the Delta)
+    turn: 147, icon: '🏴‍☠️', title: 'Sea Peoples Invade Egypt',
+    text: 'Ramesses III fights the Sea Peoples in a great naval battle at the Nile Delta. Egypt survives — barely — but grain exports are cut off entirely.',
     effects: [
       { type:'reduce_export', regionId:'egypt', resource:'grain', amount:8, desc:'Egypt grain halted' },
       { type:'price_global', resource:'grain', mult:2.0, desc:'Grain prices double' },
     ],
-    logText: 'Sea Peoples invade Egypt. Grain crisis begins.',
+    logText: 'Sea Peoples invade Egypt. Grain crisis deepens.',
     logClass: 'log-crisis',
   },
   {
-    turn: 26, icon: '🔥', title: 'Anatolia Burns',
-    text: 'City after city in Anatolia is abandoned or burned. Troy stands increasingly alone.',
+    // ~1175 BC — turn 151 — Anatolia collapses
+    turn: 151, icon: '🔥', title: 'Anatolia Burns',
+    text: 'City after city in Anatolia is abandoned or burned. Arzawa is no more. Crete\'s palace culture has ended. Troy stands increasingly alone in a world turning dark.',
     effects: [
       { type:'destroy_region', regionId:'arzawa', desc:'Arzawa falls' },
       { type:'destroy_region', regionId:'crete', desc:'Crete collapses' },
@@ -321,16 +338,18 @@ const EVENTS = [
     logClass: 'log-crisis',
   },
   {
-    turn: 28, icon: '🛡', title: 'Mycenae Falls',
-    text: 'The great citadels of Mycenae have been abandoned. The Aegean falls silent.',
+    // ~1150 BC — turn 201 capped at 195 — Mycenae falls
+    turn: 195, icon: '🛡', title: 'Mycenae Falls',
+    text: 'The great citadels of Mycenae have been abandoned. The Linear B tablets go unwritten. The Aegean falls silent. Troy may be the last palace civilization standing.',
     effects: [{ type:'destroy_region', regionId:'mycenae', desc:'Mycenae falls' }],
     logText: 'Mycenae collapses. The Aegean is dark.',
     logClass: 'log-event',
   },
   {
-    turn: 30, icon: '⚔', title: 'Final Stand',
-    text: 'The Bronze Age is ending. Civilizations that stood for centuries have crumbled. Troy still stands. Will you endure to the dawn of a new age?',
-    effects: [], logText: 'The final season. Can Troy survive?',
+    // 1150 BC — turn 200
+    turn: 200, icon: '⚔', title: 'Dawn of the Iron Age',
+    text: 'One hundred years have passed. The Bronze Age has ended. Civilizations that stood for a thousand years have crumbled into dust. Troy still stands — a beacon at the edge of a new world.',
+    effects: [], logText: 'The final season. The Iron Age dawns.',
     logClass: 'log-event', isFinal: true,
   },
 ];
@@ -339,7 +358,7 @@ const EVENTS = [
 // ─── GAME STATE ──────────────────────────────────────────────
 const G = {
   turn: 1,
-  maxTurns: 30,  // 30 half-years = 15 full years
+  maxTurns: 200,  // 200 half-years = 100 full years (1250–1150 BC)
 
   // Resources
   res: {
@@ -516,8 +535,10 @@ function computeProduction() {
   const dm = droughtGrainMult();
 
   // Grain: peasants produce only in summer; farms building boosts it
+  // Harvest is uncertain — weather varies ±30% each season
   const farmBonus = G.buildings.farms * 0.15;
-  const grainPerPeasant = isSummer() ? (0.8 + farmBonus) * dm * sm : 0;
+  const weatherRoll = isSummer() ? (0.7 + Math.random() * 0.6) : 0; // 0.7–1.3 range
+  const grainPerPeasant = isSummer() ? (0.6 + farmBonus) * dm * sm * weatherRoll : 0;
   const grain = Math.max(0, Math.round(G.pop.peasant * grainPerPeasant));
 
   // Gold: traders + toll income; harbor building boosts trader yield
@@ -537,11 +558,11 @@ function computeProduction() {
 }
 
 function popGrainConsumption() {
-  // Each unit eats 0.15 grain per turn; during famine civilians eat 2x
+  // Each unit eats 0.18 grain per turn; during famine civilians eat 2x
   const civPop = G.pop.peasant + G.pop.artisan + G.pop.trader + G.pop.patrician;
   const milPop = G.pop.militia + G.pop.legionary;
   const famMult = G.famine ? 2.0 : 1.0;
-  return Math.max(1, Math.ceil(civPop * 0.15 * famMult + milPop * 0.15));
+  return Math.max(1, Math.ceil(civPop * 0.18 * famMult + milPop * 0.18));
 }
 
 function feedPopulation() {
@@ -950,11 +971,11 @@ const LETTER_TYPES = {
     generate(regionId) {
       const r = REGIONS[regionId];
       const gifts = [
-        { res:'grain',   amt:8,  text:'grain to feed your people' },
-        { res:'bronze',  amt:3,  text:'bronze for your armories' },
-        { res:'silver',  amt:4,  text:'silver as a token of friendship' },
-        { res:'timber',  amt:5,  text:'fine timber for your ships' },
-        { res:'horses',  amt:2,  text:'swift horses from our stables' },
+        { res:'grain',   amt:4,  text:'grain to feed your people' },
+        { res:'bronze',  amt:1,  text:'bronze for your armories' },
+        { res:'silver',  amt:2,  text:'silver as a token of friendship' },
+        { res:'timber',  amt:2,  text:'fine timber for your ships' },
+        { res:'horses',  amt:1,  text:'swift horses from our stables' },
       ];
       const gift = gifts[Math.floor(Math.random() * gifts.length)];
       return {
@@ -966,12 +987,12 @@ const LETTER_TYPES = {
           G.res[gift.res] = (G.res[gift.res] || 0) + gift.amt;
           G.addLog(`Received gift from ${r.name}: +${gift.amt} ${gift.res}.`, 'log-good');
           const d = G.regionState[regionId]?.diplo;
-          if (d) d.score = clampScore(d.score + 5);
+          if (d) d.score = clampScore(d.score + 2);
         },
         onDecline: () => {
           G.addLog(`Declined gift from ${r.name}. They seem offended.`, 'log-event');
           const d = G.regionState[regionId]?.diplo;
-          if (d) d.score = clampScore(d.score - 8);
+          if (d) d.score = clampScore(d.score - 5);
         },
       };
     },
@@ -985,13 +1006,13 @@ const LETTER_TYPES = {
         type: 'REQUEST_GRAIN',
         greeting: 'To my brother the king of Wilusa',
         body: `Our people face great hardship. The harvests have failed and our granaries are empty. We implore you, great king, to send us grain as a sign of brotherhood between our peoples.`,
-        offer: `Send ${amt} 🌾 grain → +18 relations with ${r.name.split(' ')[0]}.`,
+        offer: `Send ${amt} 🌾 grain → +8 relations with ${r.name.split(' ')[0]}.`,
         canAccept: () => G.res.grain >= amt,
         onAccept: () => {
           G.res.grain -= amt;
-          G.addLog(`Sent ${amt} grain to ${r.name}. Relations greatly improved.`, 'log-good');
+          G.addLog(`Sent ${amt} grain to ${r.name}. Relations improved.`, 'log-good');
           const d = G.regionState[regionId]?.diplo;
-          if (d) d.score = clampScore(d.score + 18);
+          if (d) d.score = clampScore(d.score + 8);
         },
         onDecline: () => {
           G.addLog(`Refused grain relief to ${r.name}.`, 'log-event');
@@ -1005,7 +1026,7 @@ const LETTER_TYPES = {
     weight: 20,
     generate(regionId) {
       const r = REGIONS[regionId];
-      const goldReward = 8 + Math.floor(Math.random() * 12);
+      const goldReward = 4 + Math.floor(Math.random() * 6);
       const milCost    = 3 + Math.floor(Math.random() * 4);
       return {
         type: 'REQUEST_MILITARY',
@@ -1018,7 +1039,7 @@ const LETTER_TYPES = {
           G.res.gold += goldReward;
           G.addLog(`Sent ${milCost} militia to aid ${r.name}. Received ◎${goldReward} gold.`, 'log-good');
           const d = G.regionState[regionId]?.diplo;
-          if (d) d.score = clampScore(d.score + 20);
+          if (d) d.score = clampScore(d.score + 10);
         },
         onDecline: () => {
           G.addLog(`Refused military aid to ${r.name}.`, 'log-event');
@@ -1460,7 +1481,7 @@ function drawMap() {
   ctx.restore();
 
   // Troy star marker
-  const [tx, ty] = sp(218, 178);
+  const [tx, ty] = sp(368, 69);
   ctx.save();
   ctx.beginPath();
   ctx.arc(tx, ty, 10 * s, 0, Math.PI * 2);
