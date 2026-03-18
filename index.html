@@ -152,9 +152,40 @@
 
       <!-- Map area (takes available vertical space) -->
       <div id="map-area">
-        <canvas id="map-canvas"></canvas>
+        <img id="map-img" src="MAP1.png" alt="Bronze Age Map">
+        <!-- SVG overlay: transparent clickable polygons per region (viewBox matches MAP1.png 1430×873) -->
+        <svg id="map-svg" viewBox="0 0 1430 873" preserveAspectRatio="xMidYMid meet">
+          <!-- Troy / Wilusa -->
+          <polygon data-region="troy"    points="258,128 322,112 345,138 342,218 308,232 264,228 248,192 252,152" />
+          <!-- Mycenae (Greece mainland + Aegean islands) -->
+          <polygon data-region="mycenae" points="45,68 148,58 195,95 200,150 178,210 148,268 102,295 60,280 36,235 34,168 48,108" />
+          <!-- Crete -->
+          <polygon data-region="crete"   points="152,302 232,296 242,316 230,356 182,362 148,350 144,320" />
+          <!-- Arzawa -->
+          <polygon data-region="arzawa"  points="215,128 258,120 262,152 248,192 264,228 308,232 342,218 342,272 304,278 252,278 215,265 210,232 218,172" />
+          <!-- Hatti (large red central Anatolia) -->
+          <polygon data-region="hatti"   points="342,52 505,28 618,44 622,132 622,252 562,260 492,264 418,262 352,260 342,222 342,138" />
+          <!-- Kashka (thin northern strip) -->
+          <polygon data-region="kashka"  points="268,18 505,4 622,28 622,132 505,28 342,52 268,65" />
+          <!-- Cyprus (island) -->
+          <polygon data-region="cyprus"  points="352,238 416,235 428,256 416,288 365,293 348,268" />
+          <!-- Ugarit / Syria -->
+          <polygon data-region="ugarit"  points="400,168 512,158 525,248 492,295 440,298 398,278 393,245 396,202" />
+          <!-- Canaan -->
+          <polygon data-region="canaan"  points="393,275 448,272 465,295 462,372 432,385 395,380 378,345 382,308" />
+          <!-- Egypt (large tan area) -->
+          <polygon data-region="egypt"   points="48,300 288,294 326,318 360,332 385,345 395,380 432,385 455,415 458,515 455,615 468,742 458,785 0,785 0,300" />
+          <!-- Assyria -->
+          <polygon data-region="assyria" points="582,58 782,52 798,120 798,302 757,310 692,310 642,296 622,252 622,132 582,132" />
+          <!-- Babylon -->
+          <polygon data-region="babylon" points="642,296 757,310 798,302 822,412 802,428 742,465 662,460 628,420 630,362 638,318" />
+          <!-- Elam / Susa -->
+          <polygon data-region="elam"    points="802,292 935,285 962,355 955,422 898,448 822,448 802,428 822,412 798,302" />
+        </svg>
         <div id="map-tooltip"></div>
         <div id="phase-banner"></div>
+        <!-- Troy star marker and army pawn drawn by JS in a small canvas on top -->
+        <canvas id="map-canvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas>
       </div>
 
       <!-- Bottom strip: log + region info -->

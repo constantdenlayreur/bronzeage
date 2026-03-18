@@ -1421,35 +1421,13 @@ function drawLandMasses() {
 }
 
 function drawMap() {
+  // Background is MAP1.png (img element). Canvas only draws city markers + army pawn.
   const w = canvas.width, h = canvas.height;
   const s = Math.min(scaleX, scaleY);
 
-  drawLandMasses();
-  Object.entries(REGIONS).forEach(([id, region]) => drawRegion(id, region));
-  drawRivers();
-  drawMountains();
+  ctx.clearRect(0, 0, w, h);
 
-  ctx.save();
-  ctx.font = `italic ${Math.round(8.5 * s)}px Georgia`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const seaLabels = [
-    { text:'BLACK SEA',         x:448, y:112 },
-    { text:'CASPIAN SEA',       x:885, y:158 },
-    { text:'AEGEAN SEA',        x:152, y:252 },
-    { text:'MEDITERRANEAN SEA', x:285, y:362 },
-    { text:'RED SEA',           x:442, y:618 },
-    { text:'PERSIAN GULF',      x:882, y:535 },
-  ];
-  seaLabels.forEach(l => {
-    const [x, y] = sp(l.x, l.y);
-    ctx.shadowColor   = 'rgba(0,0,0,0.7)';
-    ctx.shadowBlur    = 3;
-    ctx.fillStyle     = 'rgba(110,175,215,0.52)';
-    ctx.fillText(l.text, x, y);
-  });
-  ctx.restore();
-
+  // City dot markers
   ctx.save();
   CITY_LIST.forEach(c => {
     const rs = G.regionState[c.region];
@@ -1457,116 +1435,84 @@ function drawMap() {
     const [x, y] = sp(c.x, c.y);
 
     ctx.beginPath();
-    ctx.arc(x, y, 2.8 * s, 0, Math.PI * 2);
-    ctx.fillStyle = destroyed ? 'rgba(180,60,40,0.5)' : 'rgba(220,195,140,0.7)';
+    ctx.arc(x, y, 3 * s, 0, Math.PI * 2);
+    ctx.fillStyle = destroyed ? 'rgba(180,60,40,0.6)' : 'rgba(220,195,140,0.85)';
     ctx.fill();
+    ctx.strokeStyle = destroyed ? 'rgba(200,80,60,0.5)' : 'rgba(80,50,10,0.6)';
+    ctx.lineWidth = 0.8 * s;
+    ctx.stroke();
 
-    ctx.font        = `${Math.round(7.5 * s)}px Georgia`;
+    ctx.font        = `bold ${Math.round(7.5 * s)}px Georgia`;
     ctx.textAlign   = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.shadowColor = 'rgba(0,0,0,0.9)';
-    ctx.shadowBlur  = 4;
-    ctx.fillStyle   = destroyed ? 'rgba(180,80,60,0.55)' : 'rgba(230,210,160,0.65)';
-    ctx.fillText(c.label, x, y - 4 * s);
+    ctx.shadowColor = 'rgba(0,0,0,0.95)';
+    ctx.shadowBlur  = 5;
+    ctx.fillStyle   = destroyed ? 'rgba(200,80,60,0.7)' : 'rgba(240,220,170,0.9)';
+    ctx.fillText(c.label, x, y - 5 * s);
 
     if (destroyed) {
-      ctx.font      = `bold ${Math.round(11 * s)}px serif`;
-      ctx.fillStyle = 'rgba(210,60,40,0.7)';
+      ctx.font = `bold ${Math.round(11 * s)}px serif`;
+      ctx.fillStyle = 'rgba(220,60,40,0.8)';
       ctx.textBaseline = 'middle';
       ctx.fillText('✕', x + 8 * s, y);
     }
   });
   ctx.restore();
 
+  // Troy star marker
   const [tx, ty] = sp(218, 178);
   ctx.save();
   ctx.beginPath();
-  ctx.arc(tx, ty, 13 * s, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(212,160,23,0.25)';
-  ctx.lineWidth   = 4 * s;
+  ctx.arc(tx, ty, 10 * s, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(212,160,23,0.5)';
+  ctx.lineWidth   = 3 * s;
   ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(tx, ty, 9 * s, 0, Math.PI * 2);
-  ctx.strokeStyle = '#d4a017';
-  ctx.lineWidth   = 1.5 * s;
-  ctx.stroke();
-  ctx.font         = `${Math.round(13 * s)}px serif`;
-  ctx.fillStyle    = '#f0c030';
-  ctx.textAlign    = 'center';
+  ctx.font = `${Math.round(12 * s)}px serif`;
+  ctx.fillStyle = '#f0c030';
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.shadowColor  = 'rgba(212,160,23,0.8)';
-  ctx.shadowBlur   = 6;
+  ctx.shadowColor = 'rgba(212,160,23,0.9)';
+  ctx.shadowBlur  = 8;
   ctx.fillText('★', tx, ty);
-  ctx.font         = `bold ${Math.round(9 * s)}px Georgia`;
-  ctx.fillStyle    = '#f0d060';
-  ctx.shadowBlur   = 5;
+  ctx.font = `bold ${Math.round(8 * s)}px Georgia`;
+  ctx.fillStyle = '#f0d060';
+  ctx.shadowBlur = 5;
   ctx.textBaseline = 'bottom';
-  ctx.fillText('TROY', tx, ty - 11 * s);
+  ctx.fillText('TROY', tx, ty - 12 * s);
   ctx.restore();
 
+  // Army pawn
   const [pawX, pawY] = sp(218, 195);
-  const pawR = 9 * s;
+  const pawR = 8 * s;
   ctx.save();
-  if (armySelected) {
-    ctx.beginPath();
-    ctx.arc(pawX, pawY, pawR + 5 * s, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(240,220,60,0.7)';
-    ctx.lineWidth = 2 * s;
-    ctx.stroke();
-    CITY_LIST.forEach(c => {
-      const rs = G.regionState[c.region];
-      if (rs?.destroyed) return;
-      const [cx, cy] = sp(c.x, c.y);
-      ctx.beginPath();
-      ctx.arc(cx, cy, 7 * s, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(220,60,40,0.75)';
-      ctx.lineWidth = 1.5 * s;
-      ctx.stroke();
-    });
-  }
   ctx.beginPath();
   ctx.arc(pawX, pawY, pawR, 0, Math.PI * 2);
-  ctx.fillStyle = armySelected ? '#e0c020' : '#9a7010';
-  ctx.shadowColor = armySelected ? 'rgba(240,220,60,0.9)' : 'rgba(0,0,0,0.6)';
-  ctx.shadowBlur  = armySelected ? 10 : 4;
+  ctx.fillStyle = '#9a7010';
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur  = 4;
   ctx.fill();
-  ctx.strokeStyle = armySelected ? '#fff080' : '#c89018';
+  ctx.strokeStyle = '#c89018';
   ctx.lineWidth = 1 * s;
   ctx.stroke();
   ctx.shadowBlur = 0;
-  ctx.font = `${Math.round(10 * s)}px serif`;
-  ctx.fillStyle = armySelected ? '#3a2000' : '#f0d060';
+  ctx.font = `${Math.round(9 * s)}px serif`;
+  ctx.fillStyle = '#f0d060';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('⚔', pawX, pawY);
   const tot = getTotalGarrison();
-  ctx.font = `bold ${Math.round(6.5 * s)}px sans-serif`;
+  ctx.font = `bold ${Math.round(6 * s)}px sans-serif`;
   ctx.fillStyle = '#fff';
   ctx.textBaseline = 'top';
-  ctx.fillText(tot, pawX + 7 * s, pawY + 5 * s);
+  ctx.fillText(tot, pawX + 6 * s, pawY + 4 * s);
   ctx.restore();
 
-  if (armySelected) {
-    ctx.save();
-    ctx.font = `italic ${Math.round(8.5 * s)}px Georgia`;
-    ctx.fillStyle = 'rgba(240,210,80,0.9)';
-    ctx.shadowColor = 'rgba(0,0,0,0.8)';
-    ctx.shadowBlur  = 3;
-    ctx.textAlign   = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText('Select a city to attack', w / 2, 6 * s);
-    ctx.restore();
-  }
+  // Update SVG polygon states (destroyed, selected)
+  updateMapSVG();
 
   drawCompassRose(w - 44 * s, h - 44 * s, 26 * s);
-
-  const vig = ctx.createRadialGradient(w*0.5, h*0.5, h*0.3, w*0.5, h*0.5, w*0.75);
-  vig.addColorStop(0,   'rgba(0,0,0,0)');
-  vig.addColorStop(0.8, 'rgba(0,0,0,0)');
-  vig.addColorStop(1,   'rgba(0,0,0,0.45)');
-  ctx.fillStyle = vig;
-  ctx.fillRect(0, 0, w, h);
 }
+
 
 function drawRivers() {
   const s = Math.min(scaleX, scaleY);
@@ -1828,101 +1774,75 @@ function pointInPoly(px, py, poly) {
   return inside;
 }
 
-function getRegionAtPoint(px, py) {
-  const ids = Object.keys(REGIONS);
-  for (let i = ids.length - 1; i >= 0; i--) {
-    const id = ids[i];
-    const region = REGIONS[id];
-    if (region.poly && pointInPoly(px, py, region.poly)) return id;
-  }
-  return null;
-}
+// ─── SVG MAP INTERACTION ─────────────────────────────────────
+function initMapSVG() {
+  const svg = document.getElementById('map-svg');
+  if (!svg) return;
 
-canvas.addEventListener('mousemove', e => {
-  const rect = canvas.getBoundingClientRect();
-  const px = e.clientX - rect.left;
-  const py = e.clientY - rect.top;
-  const id = getRegionAtPoint(px, py);
+  svg.querySelectorAll('polygon[data-region]').forEach(poly => {
+    const id = poly.dataset.region;
 
-  hoveredRegion = id;
-  drawMap();
-
-  const tooltip = document.getElementById('map-tooltip');
-  if (id && id !== 'troy') {
-    const r  = REGIONS[id];
-    const rs = G.regionState[id];
-    const d = rs.diplo;
-    const status = rs.destroyed ? '💀 Destroyed'
-                 : d ? `<span style="color:${getDiploColor(d.score,d.atWar)}">${getDiploLabel(d.score,d.atWar)}</span> (${d.score>0?'+':''}${d.score})`
-                 : getRelationLabel(rs.relation);
-    let html = `<b style="color:${r.borderColor}">${r.icon} ${r.name}</b><br>${status}`;
-    if (!rs.destroyed && !r.noTrade) {
-      const exports = Object.entries(r.exports || {})
-        .map(([res,_]) => `${r.exports[res].icon} ${res} @ ◎${getPrice(res, id)}`)
-        .join(', ');
-      if (exports) html += `<br><span style="color:#6a8050">Exports: ${exports}</span>`;
-      const distCost = getTradeDistanceCost(id);
-      if (distCost > 0) html += `<br><span style="color:#c08030">Distance cost: ◎${distCost}</span>`;
-    }
-    tooltip.innerHTML = html;
-    tooltip.style.display = 'block';
-    tooltip.style.left = (e.clientX + 14) + 'px';
-    tooltip.style.top  = (e.clientY - 8)  + 'px';
-  } else {
-    tooltip.style.display = 'none';
-  }
-});
-
-canvas.addEventListener('mouseleave', () => {
-  hoveredRegion = null;
-  document.getElementById('map-tooltip').style.display = 'none';
-  drawMap();
-});
-
-function getCityAtPoint(px, py) {
-  for (const c of CITY_LIST) {
-    const [cx, cy] = sp(c.x, c.y);
-    if (Math.hypot(px - cx, py - cy) <= 13 * Math.min(scaleX, scaleY)) return c;
-  }
-  return null;
-}
-
-canvas.addEventListener('click', e => {
-  const rect = canvas.getBoundingClientRect();
-  const px = e.clientX - rect.left;
-  const py = e.clientY - rect.top;
-
-  const [pawX, pawY] = sp(210, 200);
-  const s = Math.min(scaleX, scaleY);
-  if (Math.hypot(px - pawX, py - pawY) <= 11 * s) {
-    armySelected = !armySelected;
-    drawMap();
-    return;
-  }
-
-  if (armySelected) {
-    const city = getCityAtPoint(px, py);
-    armySelected = false;
-    if (city) {
-      const rs = G.regionState[city.region];
-      if (rs?.destroyed) {
-        G.addLog(`${city.label} is already destroyed — nothing to raid.`, 'log-event');
-        drawMap();
-        return;
+    poly.addEventListener('mouseenter', e => {
+      const r  = REGIONS[id];
+      const rs = G.regionState[id];
+      if (!r || !rs) return;
+      const d = rs.diplo;
+      const status = rs.destroyed ? '💀 Destroyed'
+                   : d ? `<span style="color:${getDiploColor(d.score,d.atWar)}">${getDiploLabel(d.score,d.atWar)}</span> (${d.score>0?'+':''}${d.score})`
+                   : getRelationLabel(rs.relation);
+      let html = `<b style="color:${r.borderColor}">${r.icon} ${r.name}</b><br>${status}`;
+      if (!rs.destroyed && !r.noTrade && id !== 'troy') {
+        const exports = Object.entries(r.exports || {})
+          .map(([res, info]) => `${info.icon} ${res} @ ◎${getPrice(res, id)}`)
+          .join(', ');
+        if (exports) html += `<br><span style="color:#6a8050">Exports: ${exports}</span>`;
+        const distCost = getTradeDistanceCost(id);
+        if (distCost > 0) html += `<br><span style="color:#c08030">Distance: ◎${distCost}</span>`;
       }
-      launchExpedition(city);
-      return;
-    }
-    drawMap();
-    return;
-  }
+      const tooltip = document.getElementById('map-tooltip');
+      tooltip.innerHTML = html;
+      tooltip.style.display = 'block';
+    });
 
-  const id = getRegionAtPoint(px, py);
-  if (!id || id === 'troy') return;
-  selectedRegionId = id;
-  drawMap();
-  renderRegionInfo(id);
-});
+    poly.addEventListener('mousemove', e => {
+      const tooltip = document.getElementById('map-tooltip');
+      tooltip.style.left = (e.clientX + 14) + 'px';
+      tooltip.style.top  = (e.clientY - 8)  + 'px';
+    });
+
+    poly.addEventListener('mouseleave', () => {
+      document.getElementById('map-tooltip').style.display = 'none';
+    });
+
+    poly.addEventListener('click', () => {
+      if (id === 'troy') return;
+      const rs = G.regionState[id];
+      if (!rs) return;
+      // Deselect previous
+      svg.querySelectorAll('polygon.selected').forEach(p => p.classList.remove('selected'));
+      poly.classList.add('selected');
+      selectedRegionId = id;
+      renderRegionInfo(id);
+    });
+  });
+}
+
+// Sync destroyed state to SVG polygon classes
+function updateMapSVG() {
+  const svg = document.getElementById('map-svg');
+  if (!svg) return;
+  svg.querySelectorAll('polygon[data-region]').forEach(poly => {
+    const id = poly.dataset.region;
+    const rs = G.regionState[id];
+    if (rs?.destroyed) poly.classList.add('destroyed');
+    else poly.classList.remove('destroyed');
+    if (id === selectedRegionId) poly.classList.add('selected');
+  });
+}
+
+// Stub kept for compat
+function getRegionAtPoint() { return null; }
+function getCityAtPoint()   { return null; }
 
 
 // ═══════════════════════════════════════════════════════════════
@@ -3412,6 +3332,7 @@ document.getElementById('begin-btn').addEventListener('click', () => {
   document.getElementById('game-screen').style.display = 'flex';
   // Seed initial population history entry
   recordPopHistory();
+  initMapSVG();
   renderAll();
   updateLetterBadge();
   resizeCanvas();

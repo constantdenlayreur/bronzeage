@@ -519,10 +519,48 @@ button.action-item:disabled {
   min-height: 0;
 }
 
-#map-canvas {
+#map-img {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: contain;
+  object-position: center top;
+}
+
+#map-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Region polygons — transparent, glow on hover/select */
+#map-svg polygon {
+  fill: transparent;
+  stroke: rgba(255,255,255,0.18);
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: fill 0.12s, stroke 0.12s;
+}
+#map-svg polygon:hover {
+  fill: rgba(255,255,255,0.14);
+  stroke: rgba(255,255,210,0.65);
+  stroke-width: 2.5;
+}
+#map-svg polygon.selected {
+  fill: rgba(255,215,60,0.16);
+  stroke: rgba(212,160,23,0.85);
+  stroke-width: 2.5;
+}
+#map-svg polygon.destroyed {
+  fill: rgba(160,30,20,0.20);
+  stroke: rgba(180,40,30,0.55);
+  cursor: default;
+}
+
+/* Canvas for city labels + army pawn drawn on top (pointer-events off) */
+#map-canvas {
+  display: block;
 }
 
 #map-tooltip {
